@@ -1,0 +1,24 @@
+# .gitignore for Antigravity translator
+
+# Virtual environment
+venv/
+ENV/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local configurations & caches
+.keras/
+.matplotlib/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+ehthumbs.db
+Thumbs.db
+
+# Generated model checkpoints & tests (optional, recreate via training)
+saved_model/
+tfjs_model_test/

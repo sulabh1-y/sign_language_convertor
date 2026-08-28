@@ -1,0 +1,7 @@
+# requirements.txt
+# Python dependencies for Antigravity model training and conversion.
+# Using a clean virtual environment (venv) is recommended to prevent global package conflicts.
+
+numpy>=2.1.3
+tensorflow>=2.19.0
+tensorflowjs>=4.22.0

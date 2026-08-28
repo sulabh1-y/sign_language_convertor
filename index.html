@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity | Real-Time Client-Side Sign Language Translator</title>
+    <meta name="description" content="A premium, zero-backend, client-side sign language translator utilizing MediaPipe hand tracking and TensorFlow.js in the browser.">
+    
+    <!-- Modern Typography: Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Premium Icons (FontAwesome) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+
+    <!-- CSS Style File -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- MediaPipe Hands CDN Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <!-- TensorFlow.js CDN Script -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <!-- Abstract Ambient Background Gradients -->
+    <div class="ambient-glow bg-glow-1"></div>
+    <div class="ambient-glow bg-glow-2"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand-section">
+                <div class="logo-icon"><i class="fa-solid fa-hands-asl-interpreting"></i></div>
+                <div class="title-meta">
+                    <h1 id="app-title">ANTIGRAVITY</h1>
+                    <p class="subtitle">Real-Time Sign Language Translation</p>
+                </div>
+            </div>
+            
+            <div class="system-status-container">
+                <div class="status-badge" id="status-webcam" data-status="inactive">
+                    <span class="status-dot"></span>
+                    <i class="fa-solid fa-video font-icon"></i> Camera: <span class="status-text">OFF</span>
+                </div>
+                <div class="status-badge" id="status-model" data-status="loading">
+                    <span class="status-dot"></span>
+                    <i class="fa-solid fa-brain font-icon"></i> Model: <span class="status-text">LOADING</span>
+                </div>
+                <div class="status-badge" id="status-detection" data-status="none">
+                    <span class="status-dot"></span>
+                    <i class="fa-solid fa-hand-pointer font-icon"></i> Hand: <span class="status-text">NONE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="app-main">
+            <!-- Left Column: Camera and Dataset Builder -->
+            <div class="main-column">
+                <!-- Left Panel: Webcam Stream and Drawing Overlay -->
+                <section class="viewport-card glass-panel" aria-labelledby="viewport-header">
+                    <div class="panel-header">
+                        <h2 id="viewport-header"><i class="fa-solid fa-camera"></i> Live Tracking Interface</h2>
+                        <span class="badge badge-accent">100% Client-Side</span>
+                    </div>
+                    
+                    <div class="stream-wrapper">
+                        <!-- Invisible source video -->
+                        <video id="webcam-feed" playsinline autoplay muted style="display: none;"></video>
+                        
+                        <!-- Display viewport -->
+                        <canvas id="tracking-canvas"></canvas>
+                        
+                        <!-- Dynamic HUD overlays -->
+                        <div class="viewport-hud">
+                            <div class="hud-item" id="hud-fps">
+                                <span class="label">FPS</span>
+                                <span class="value">00</span>
+                            </div>
+                            <div class="hud-item" id="hud-latency">
+                                <span class="label">LATENCY</span>
+                                <span class="value">0 ms</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="viewport-actions">
+                        <button class="btn btn-primary" id="btn-toggle-camera" aria-label="Toggle camera feed">
+                            <i class="fa-solid fa-power-off"></i> Start Webcam
+                        </button>
+                        <button class="btn btn-secondary" id="btn-toggle-translation" aria-label="Toggle live translation" disabled>
+                            <i class="fa-solid fa-pause"></i> Pause Translation
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Dataset Builder Card -->
+                <section class="dataset-card glass-panel" aria-labelledby="dataset-header">
+                    <div class="panel-header">
+                        <h2 id="dataset-header"><i class="fa-solid fa-database"></i> Custom Dataset Builder</h2>
+                        <span class="badge badge-accent" id="dataset-total-samples">0 Samples</span>
+                    </div>
+                    
+                    <div class="dataset-controls-grid">
+                        <div class="control-group">
+                            <label class="control-label">Target Gesture Label</label>
+                            <div class="input-row">
+                                <select id="select-record-class" aria-label="Select gesture class to record">
+                                    <option value="Hello">Hello</option>
+                                    <option value="Thank You">Thank You</option>
+                                    <option value="Goodbye">Goodbye</option>
+                                </select>
+                                <input type="text" id="input-custom-class" placeholder="Or add new label..." aria-label="Type custom gesture label">
+                                <button class="btn btn-action" id="btn-add-class" title="Add Class"><i class="fa-solid fa-plus"></i></button>
+                            </div>
+                        </div>
+                        
+                        <div class="record-action-container">
+                            <button class="btn btn-primary" id="btn-record-sequence" aria-label="Record sequence">
+                                <i class="fa-solid fa-circle-dot"></i> Record Sample (30 Frames)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="recording-progress-container" id="recording-progress-wrapper" style="display: none;">
+                        <div class="progress-details">
+                            <span id="recording-state-label">Waiting for hand...</span>
+                            <span id="recording-frame-count">0 / 30</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-bar-fill" id="recording-progress-bar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="dataset-stats-container">
+                        <h3 class="section-title">Recorded Samples Counter</h3>
+                        <ul class="stats-list" id="dataset-stats-list">
+                            <li class="stats-item empty-state">No samples recorded yet.</li>
+                        </ul>
+                    </div>
+
+                    <div class="dataset-actions">
+                        <button class="btn btn-secondary" id="btn-download-dataset" disabled>
+                            <i class="fa-solid fa-download"></i> Download dataset.json
+                        </button>
+                        <button class="btn btn-danger btn-action" id="btn-reset-dataset" disabled>
+                            <i class="fa-solid fa-rotate-left"></i> Reset Dataset
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Right Panel: Translation Output and Controls -->
+            <section class="dashboard-card glass-panel" aria-labelledby="dashboard-header">
+                <div class="panel-header">
+                    <h2 id="dashboard-header"><i class="fa-solid fa-desktop"></i> Translation Terminal</h2>
+                    <span class="badge badge-success" id="runtime-acceleration">CPU</span>
+                </div>
+
+                <!-- Prediction Feed -->
+                <div class="prediction-section">
+                    <h3 class="section-title">Active Prediction</h3>
+                    <div class="prediction-box">
+                        <div class="predicted-word" id="active-word">WAITING...</div>
+                        <div class="confidence-container">
+                            <div class="confidence-label">Confidence: <span id="confidence-percentage">0%</span></div>
+                            <div class="confidence-track">
+                                <div class="confidence-bar" id="active-confidence-bar" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Word History and Sentence Assembly -->
+                <div class="sentence-section">
+                    <h3 class="section-title">Assembled Transcript</h3>
+                    <div class="sentence-box">
+                        <textarea id="sentence-history" readonly placeholder="Translated words will appear here to form sentences..."></textarea>
+                    </div>
+                    <div class="sentence-actions">
+                        <button class="btn btn-action" id="btn-tts" aria-label="Speak sentence history">
+                            <i class="fa-solid fa-volume-high"></i> Speak
+                        </button>
+                        <button class="btn btn-action btn-danger" id="btn-clear-history" aria-label="Clear sentence history">
+                            <i class="fa-solid fa-trash-can"></i> Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Diagnostics Dashboard -->
+                <div class="diagnostics-section">
+                    <h3 class="section-title">Telemetry & Diagnostics</h3>
+                    <div class="telemetry-grid">
+                        <div class="telemetry-item">
+                            <span class="label">Sequence Buffer</span>
+                            <div class="progress-indicator">
+                                <span class="value" id="telemetry-buffer-text">0 / 30 frames</span>
+                                <div class="track"><div class="fill" id="telemetry-buffer-fill" style="width: 0%;"></div></div>
+                            </div>
+                        </div>
+                        <div class="telemetry-item">
+                            <span class="label">Classes Mapped</span>
+                            <span class="value" id="telemetry-classes">3 (Hello, Thank You, Goodbye)</span>
+                        </div>
+                        <div class="telemetry-item">
+                            <span class="label">TF.js Memory</span>
+                            <span class="value" id="telemetry-memory">0 Tensors</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>Antigravity Real-Time Client-Side Translator &bull; Built with MediaPipe Hands & TensorFlow.js</p>
+        </footer>
+    </div>
+
+    <!-- Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>
