@@ -20,9 +20,9 @@ fi
 echo "Ensuring compatible protobuf runtime version..."
 pip3 install "protobuf>=6.31.1"
 
-# Convert saved_model to tfjs_model directory containing model.json and binary shard files
-echo "Converting saved_model to TensorFlow.js format..."
-tensorflowjs_converter --input_format=tf_saved_model saved_model tfjs_model
+# Convert model.h5 to tfjs_model directory containing model.json and binary shard files
+echo "Converting model.h5 to TensorFlow.js format..."
+KERAS_HOME=./.keras tensorflowjs_converter --input_format=keras model.h5 tfjs_model
 
 echo "Conversion complete! Created directory 'tfjs_model/' with files:"
 ls -la tfjs_model/

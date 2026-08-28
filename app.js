@@ -132,27 +132,6 @@ function syncClassSelector() {
     document.getElementById('telemetry-classes').innerText = `${CONFIG.classes.length} (${CONFIG.classes.join(', ')})`;
 }
 
-// Helper to dynamically resolve TensorFlow.js graph signature discrepancies
-async function executeModel(model, inputTensor) {
-    const trials = [
-        { name: "Dict 'keras_tensor'", fn: async () => await model.executeAsync({ 'keras_tensor': inputTensor }) },
-        { name: "Dict 'keras_tensor' with outputs ['Identity']", fn: async () => await model.executeAsync({ 'keras_tensor': inputTensor }, ['Identity']) },
-        { name: "Dict 'keras_tensor' with outputs ['Identity:0']", fn: async () => await model.executeAsync({ 'keras_tensor': inputTensor }, ['Identity:0']) },
-        { name: "Dict 'keras_tensor:0'", fn: async () => await model.executeAsync({ 'keras_tensor:0': inputTensor }) },
-        { name: "Dict 'keras_tensor:0' with outputs ['Identity:0']", fn: async () => await model.executeAsync({ 'keras_tensor:0': inputTensor }, ['Identity:0']) },
-        { name: "Raw tensor", fn: async () => await model.executeAsync(inputTensor) }
-    ];
-    let errors = [];
-    for (const trial of trials) {
-        try {
-            return await trial.fn();
-        } catch (err) {
-            errors.push(`[${trial.name}]: ${err.message}`);
-        }
-    }
-    throw new Error("All trials failed:\n" + errors.join("\n"));
-}
-
 // 4. Load TensorFlow.js Model
 async function loadTensorFlowModel() {
     try {
@@ -160,7 +139,7 @@ async function loadTensorFlowModel() {
         elements.statusModel.setAttribute('data-status', 'loading');
         elements.statusModel.querySelector('.status-text').innerText = 'LOADING';
 
-        state.model = await tf.loadGraphModel(CONFIG.modelPath);
+        state.model = await tf.loadLayersModel(CONFIG.modelPath);
         state.isModelLoaded = true;
         
         const backend = tf.getBackend().toUpperCase();
@@ -170,15 +149,11 @@ async function loadTensorFlowModel() {
         elements.statusModel.querySelector('.status-text').innerText = 'READY';
         elements.runtimeAcceleration.innerText = backend;
         
-        // Warm up model using executeAsync to handle dynamic control flow ops (LSTM Exit ops)
+        // Warm up model with a dummy inference pass
         const dummyInput = tf.zeros([1, CONFIG.sequenceLength, CONFIG.totalFeatures]);
-        const dummyOutput = await executeModel(state.model, dummyInput);
+        const dummyOutput = state.model.predict(dummyInput);
         dummyInput.dispose();
-        if (Array.isArray(dummyOutput)) {
-            dummyOutput.forEach(t => t.dispose());
-        } else {
-            dummyOutput.dispose();
-        }
+        dummyOutput.dispose();
         
         updateMemoryDiagnostics();
         elements.btnToggleTranslation.removeAttribute('disabled');
@@ -206,17 +181,6 @@ function createMockModel() {
         predict: (tensor) => {
             return tf.tidy(() => {
                 const batch = tensor.shape[0];
-                const logits = tf.randomNormal([batch, CONFIG.classes.length]);
-                return tf.softmax(logits);
-            });
-        },
-        executeAsync: async (inputs) => {
-            return tf.tidy(() => {
-                let batch = 1;
-                const tensor = inputs instanceof tf.Tensor ? inputs : Object.values(inputs)[0];
-                if (tensor && tensor.shape) {
-                    batch = tensor.shape[0];
-                }
                 const logits = tf.randomNormal([batch, CONFIG.classes.length]);
                 return tf.softmax(logits);
             });
@@ -524,18 +488,13 @@ function drawSkeleton(landmarks) {
 async function runInference() {
     const startTime = performance.now();
     
-    // MEMORY MANAGEMENT: Manual tf.dispose() for async execution (tf.tidy does not support async/Promises)
+    // MEMORY MANAGEMENT: Manual tf.dispose() for intermediate tensors
     const inputTensor = tf.tensor3d([state.sequenceBuffer]);
     let predictionResults;
     try {
-        const prediction = await executeModel(state.model, inputTensor);
-        if (Array.isArray(prediction)) {
-            predictionResults = prediction[0].squeeze().dataSync();
-            prediction.forEach(t => t.dispose());
-        } else {
-            predictionResults = prediction.squeeze().dataSync();
-            prediction.dispose();
-        }
+        const prediction = state.model.predict(inputTensor);
+        predictionResults = prediction.squeeze().dataSync();
+        prediction.dispose();
     } catch (err) {
         console.error("Inference execution failed:", err);
         inputTensor.dispose();
