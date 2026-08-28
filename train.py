@@ -11,7 +11,7 @@ import json
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.layers import Input, LSTM, Dense, Dropout
 from tensorflow.keras.utils import to_categorical
 
 def main():
@@ -108,7 +108,8 @@ def main():
     
     # 3. Define LSTM Network Architecture
     model = Sequential([
-        LSTM(64, return_sequences=True, input_shape=(sequence_length, num_features)),
+        Input(shape=(sequence_length, num_features)),
+        LSTM(64, return_sequences=True),
         Dropout(0.2),
         LSTM(64, return_sequences=False),
         Dropout(0.2),
