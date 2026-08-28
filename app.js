@@ -158,12 +158,13 @@ async function loadTensorFlowModel() {
         updateMemoryDiagnostics();
         elements.btnToggleTranslation.removeAttribute('disabled');
     } catch (error) {
-        console.error("Failed to load TensorFlow.js model:", error);
-        
         elements.statusModel.setAttribute('data-status', 'inactive');
-        elements.statusModel.querySelector('.status-text').innerText = 'ERROR (Check Console)';
-        
-        console.warn("Loading a mock fallback model structure for demonstration purposes...");
+        elements.statusModel.querySelector('.status-text').innerText = 'ERR: ' + error.message.substring(0, 30);
+        // Also print to assembled transcript console box for user readability
+        const transcriptBox = document.getElementById('transcript-text');
+        if (transcriptBox) {
+            transcriptBox.innerText = `[LOAD ERROR] ${error.message}\n${error.stack || ''}`;
+        }
         createMockModel();
     }
 }
