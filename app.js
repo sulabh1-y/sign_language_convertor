@@ -163,7 +163,9 @@ async function loadTensorFlowModel() {
         
         // Output detailed error to history block
         if (elements.sentenceHistory) {
-            elements.sentenceHistory.innerText = `[LOAD ERROR] ${error.message}\n\nStack:\n${error.stack || ''}`;
+            const inputsStr = state.model && state.model.inputs ? JSON.stringify(state.model.inputs) : 'undefined';
+            const outputsStr = state.model && state.model.outputs ? JSON.stringify(state.model.outputs) : 'undefined';
+            elements.sentenceHistory.innerText = `[LOAD ERROR] ${error.message}\n\nModel Inputs: ${inputsStr}\nModel Outputs: ${outputsStr}\n\nStack:\n${error.stack || ''}`;
         }
         
         // Trigger browser alert popup so the user can see it immediately
