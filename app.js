@@ -238,10 +238,29 @@ function onResults(results) {
         
         const handLandmarks = results.multiHandLandmarks[0];
         
-        // Extract flat coordinates
+        // Extract coordinates with wrist-relative normalization and max-absolute scaling
+        const base_x = handLandmarks[0].x;
+        const base_y = handLandmarks[0].y;
+        
+        const relativeCoords = [];
+        for (let i = 0; i < handLandmarks.length; i++) {
+            relativeCoords.push(handLandmarks[i].x - base_x);
+            relativeCoords.push(handLandmarks[i].y - base_y);
+        }
+        
+        let maxVal = 0;
+        for (let i = 0; i < relativeCoords.length; i++) {
+            const absVal = Math.abs(relativeCoords[i]);
+            if (absVal > maxVal) {
+                maxVal = absVal;
+            }
+        }
+        
         const coords = [];
         for (let i = 0; i < handLandmarks.length; i++) {
-            coords.push(handLandmarks[i].x, handLandmarks[i].y, handLandmarks[i].z);
+            const normX = maxVal > 0 ? (handLandmarks[i].x - base_x) / maxVal : 0;
+            const normY = maxVal > 0 ? (handLandmarks[i].y - base_y) / maxVal : 0;
+            coords.push(normX, normY, 0.0); // Pad Z with 0.0 to match the 3D shape (63 features)
         }
         
         // 1. Handle Active Dataset Recording
