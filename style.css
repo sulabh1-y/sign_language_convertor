@@ -1,4 +1,4 @@
-/* style.css - Custom stylesheet for Antigravity */
+/* style.css - Custom stylesheet for DeafBuddy */
 
 /* 1. Global Reset & Variables */
 :root {
@@ -756,7 +756,106 @@ body {
     flex: 1;
 }
 
-/* 11. Footer Styling */
+/* 11. Gesture Reference Guide Styles */
+.reference-card {
+    padding: 1.5rem;
+}
+
+.reference-desc {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 1.2rem;
+    line-height: 1.4;
+}
+
+.gesture-reference-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.8rem;
+}
+
+@media (max-width: 480px) {
+    .gesture-reference-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.gesture-ref-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 0.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.gesture-ref-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, rgba(168, 85, 247, 0.15) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 0;
+}
+
+.gesture-ref-item:hover {
+    transform: translateY(-3px);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(168, 85, 247, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.gesture-ref-item:hover::before {
+    opacity: 1;
+}
+
+.gesture-ref-item.active-predicted {
+    background: rgba(168, 85, 247, 0.12);
+    border-color: var(--neon-purple);
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.25);
+    transform: scale(1.03);
+}
+
+.gesture-ref-item.active-predicted .gesture-emoji {
+    transform: scale(1.2);
+    filter: drop-shadow(0 0 8px var(--neon-purple));
+}
+
+.gesture-emoji {
+    font-size: 2rem;
+    margin-bottom: 0.4rem;
+    z-index: 1;
+    transition: transform 0.3s ease;
+}
+
+.gesture-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin-bottom: 0.2rem;
+    z-index: 1;
+}
+
+.gesture-action {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.2;
+    z-index: 1;
+    max-width: 90%;
+}
+
+/* 12. Footer Styling */
 .app-footer {
     text-align: center;
     padding: 1.5rem;

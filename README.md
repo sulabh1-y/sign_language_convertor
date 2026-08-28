@@ -1,6 +1,6 @@
-# Antigravity: Real-Time Client-Side Sign Language Translator
+# DeafBuddy: Interactive Real-Time Sign Language Translator
 
-**Antigravity** is a highly optimized, 100% client-side sign language translator running entirely inside the web browser. It leverages **MediaPipe Hands JS** for real-time landmark feature extraction, and **TensorFlow.js** for high-performance LSTM model inference.
+**DeafBuddy** is a highly optimized, 100% client-side sign language translator running entirely inside the web browser. It leverages **MediaPipe Hands JS** for real-time landmark feature extraction, and **TensorFlow.js** for high-performance LSTM model inference.
 
 With zero backend dependencies, it ensures user data privacy, low latency, and portability.
 

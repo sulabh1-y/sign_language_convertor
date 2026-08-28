@@ -15,7 +15,7 @@ from tensorflow.keras.layers import Input, LSTM, Dense, Dropout
 from tensorflow.keras.utils import to_categorical
 
 def main():
-    print("=== Antigravity LSTM Model Training ===")
+    print("=== DeafBuddy LSTM Model Training ===")
     
     # 1. Configuration Constants
     sequence_length = 30  # Number of frames per gesture sequence
@@ -145,7 +145,9 @@ def main():
     model_dir = 'saved_model'
     print(f"\nExporting model to SavedModel directory '{model_dir}'...")
     model.export(model_dir)
-    print("Model exported successfully!")
+    print("Saving model in H5 format...")
+    model.save('model.h5')
+    print("Model exported and saved successfully!")
     print("\nNext Step: Convert the model to TF.js format using:")
     print("  ./convert_model.sh")
 

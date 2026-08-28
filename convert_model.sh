@@ -5,7 +5,7 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-echo "=== Antigravity TF.js Model Converter ==="
+echo "=== DeafBuddy TF.js Model Converter ==="
 
 # Check if tensorflowjs is installed
 if ! pip3 show tensorflowjs &> /dev/null; then

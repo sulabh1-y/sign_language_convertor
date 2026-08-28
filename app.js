@@ -1,4 +1,4 @@
-// app.js - Sign Language Translation & Dataset Collector Logic
+// app.js - DeafBuddy Sign Language Translation & Dataset Collector Logic
 
 // 1. Configuration & Global State
 const CONFIG = {
@@ -10,7 +10,7 @@ const CONFIG = {
     stabilityFrames: 7,       // Consecutive frames required to lock in a word
     cooldownFrames: 25,       // Wait after pushing a word before writing another
     modelPath: 'tfjs_model/model.json',
-    classes: ['Closed', 'Open', 'Pointer']
+    classes: ['Bye', 'Closed', 'Hello', 'How are you', 'No', 'Open', 'Pointer', 'Thank you', 'Yes']
 };
 
 const state = {
@@ -540,6 +540,10 @@ async function runInference() {
 
 // Update Active Word UI Elements
 function updatePredictionUI() {
+    // Clear active highlights on reference guide items
+    const refItems = document.querySelectorAll('.gesture-ref-item');
+    refItems.forEach(item => item.classList.remove('active-predicted'));
+
     if (state.activePredictionWord === 'WAITING...') {
         elements.activeWord.innerText = 'WAITING...';
         elements.confidencePercentage.innerText = '0%';
@@ -554,6 +558,13 @@ function updatePredictionUI() {
             elements.confidenceBar.style.background = 'linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-cyan) 100%)';
         } else {
             elements.confidenceBar.style.background = 'linear-gradient(90deg, var(--neon-purple) 0%, var(--neon-pink) 100%)';
+        }
+        
+        // Dynamic guide highlight
+        const activeWord = state.activePredictionWord.toLowerCase();
+        const matchingRef = Array.from(refItems).find(item => item.getAttribute('data-gesture').toLowerCase() === activeWord);
+        if (matchingRef) {
+            matchingRef.classList.add('active-predicted');
         }
     }
 }
