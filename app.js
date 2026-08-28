@@ -149,11 +149,11 @@ async function loadTensorFlowModel() {
         elements.statusModel.querySelector('.status-text').innerText = 'READY';
         elements.runtimeAcceleration.innerText = backend;
         
-        // Warm up model
-        tf.tidy(() => {
-            const dummyInput = tf.zeros([1, CONFIG.sequenceLength, CONFIG.totalFeatures]);
-            state.model.predict(dummyInput);
-        });
+        // Warm up model using executeAsync to handle dynamic control flow ops (LSTM Exit ops)
+        const dummyInput = tf.zeros([1, CONFIG.sequenceLength, CONFIG.totalFeatures]);
+        const dummyOutput = await state.model.executeAsync(dummyInput);
+        dummyInput.dispose();
+        dummyOutput.dispose();
         
         updateMemoryDiagnostics();
         elements.btnToggleTranslation.removeAttribute('disabled');
@@ -177,6 +177,13 @@ async function loadTensorFlowModel() {
 function createMockModel() {
     state.model = {
         predict: (tensor) => {
+            return tf.tidy(() => {
+                const batch = tensor.shape[0];
+                const logits = tf.randomNormal([batch, CONFIG.classes.length]);
+                return tf.softmax(logits);
+            });
+        },
+        executeAsync: async (tensor) => {
             return tf.tidy(() => {
                 const batch = tensor.shape[0];
                 const logits = tf.randomNormal([batch, CONFIG.classes.length]);
@@ -486,12 +493,19 @@ function drawSkeleton(landmarks) {
 async function runInference() {
     const startTime = performance.now();
     
-    // MEMORY MANAGEMENT: Execute in tidy block to flush intermediate tensors
-    const predictionResults = tf.tidy(() => {
-        const inputTensor = tf.tensor3d([state.sequenceBuffer]);
-        const prediction = state.model.predict(inputTensor);
-        return prediction.squeeze().dataSync();
-    });
+    // MEMORY MANAGEMENT: Manual tf.dispose() for async execution (tf.tidy does not support async/Promises)
+    const inputTensor = tf.tensor3d([state.sequenceBuffer]);
+    let predictionResults;
+    try {
+        const prediction = await state.model.executeAsync(inputTensor);
+        predictionResults = prediction.squeeze().dataSync();
+        prediction.dispose();
+    } catch (err) {
+        console.error("Inference execution failed:", err);
+        inputTensor.dispose();
+        return;
+    }
+    inputTensor.dispose();
     
     state.latency = Math.round(performance.now() - startTime);
     elements.hudLatency.innerText = `${state.latency} ms`;
