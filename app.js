@@ -132,6 +132,27 @@ function syncClassSelector() {
     document.getElementById('telemetry-classes').innerText = `${CONFIG.classes.length} (${CONFIG.classes.join(', ')})`;
 }
 
+// Helper to dynamically resolve TensorFlow.js graph signature discrepancies
+async function executeModel(model, inputTensor) {
+    const trials = [
+        async () => await model.executeAsync({ 'keras_tensor': inputTensor }),
+        async () => await model.executeAsync({ 'keras_tensor': inputTensor }, ['Identity']),
+        async () => await model.executeAsync({ 'keras_tensor': inputTensor }, ['Identity:0']),
+        async () => await model.executeAsync({ 'keras_tensor:0': inputTensor }),
+        async () => await model.executeAsync(inputTensor)
+    ];
+    let lastError = null;
+    for (const trial of trials) {
+        try {
+            return await trial();
+        } catch (err) {
+            lastError = err;
+            continue;
+        }
+    }
+    throw lastError;
+}
+
 // 4. Load TensorFlow.js Model
 async function loadTensorFlowModel() {
     try {
@@ -151,9 +172,13 @@ async function loadTensorFlowModel() {
         
         // Warm up model using executeAsync to handle dynamic control flow ops (LSTM Exit ops)
         const dummyInput = tf.zeros([1, CONFIG.sequenceLength, CONFIG.totalFeatures]);
-        const dummyOutput = await state.model.executeAsync(dummyInput);
+        const dummyOutput = await executeModel(state.model, dummyInput);
         dummyInput.dispose();
-        dummyOutput.dispose();
+        if (Array.isArray(dummyOutput)) {
+            dummyOutput.forEach(t => t.dispose());
+        } else {
+            dummyOutput.dispose();
+        }
         
         updateMemoryDiagnostics();
         elements.btnToggleTranslation.removeAttribute('disabled');
@@ -185,9 +210,13 @@ function createMockModel() {
                 return tf.softmax(logits);
             });
         },
-        executeAsync: async (tensor) => {
+        executeAsync: async (inputs) => {
             return tf.tidy(() => {
-                const batch = tensor.shape[0];
+                let batch = 1;
+                const tensor = inputs instanceof tf.Tensor ? inputs : Object.values(inputs)[0];
+                if (tensor && tensor.shape) {
+                    batch = tensor.shape[0];
+                }
                 const logits = tf.randomNormal([batch, CONFIG.classes.length]);
                 return tf.softmax(logits);
             });
@@ -499,9 +528,14 @@ async function runInference() {
     const inputTensor = tf.tensor3d([state.sequenceBuffer]);
     let predictionResults;
     try {
-        const prediction = await state.model.executeAsync(inputTensor);
-        predictionResults = prediction.squeeze().dataSync();
-        prediction.dispose();
+        const prediction = await executeModel(state.model, inputTensor);
+        if (Array.isArray(prediction)) {
+            predictionResults = prediction[0].squeeze().dataSync();
+            prediction.forEach(t => t.dispose());
+        } else {
+            predictionResults = prediction.squeeze().dataSync();
+            prediction.dispose();
+        }
     } catch (err) {
         console.error("Inference execution failed:", err);
         inputTensor.dispose();
