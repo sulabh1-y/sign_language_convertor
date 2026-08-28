@@ -160,11 +160,15 @@ async function loadTensorFlowModel() {
     } catch (error) {
         elements.statusModel.setAttribute('data-status', 'inactive');
         elements.statusModel.querySelector('.status-text').innerText = 'ERR: ' + error.message.substring(0, 30);
-        // Also print to assembled transcript console box for user readability
-        const transcriptBox = document.getElementById('transcript-text');
-        if (transcriptBox) {
-            transcriptBox.innerText = `[LOAD ERROR] ${error.message}\n${error.stack || ''}`;
+        
+        // Output detailed error to history block
+        if (elements.sentenceHistory) {
+            elements.sentenceHistory.innerText = `[LOAD ERROR] ${error.message}\n\nStack:\n${error.stack || ''}`;
         }
+        
+        // Trigger browser alert popup so the user can see it immediately
+        alert("TFJS LOAD ERROR:\n" + error.message);
+        
         createMockModel();
     }
 }
