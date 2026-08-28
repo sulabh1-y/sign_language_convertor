@@ -24,9 +24,27 @@ pip3 install "protobuf>=6.31.1"
 echo "Converting model.h5 to TensorFlow.js format..."
 KERAS_HOME=./.keras tensorflowjs_converter --input_format=keras model.h5 tfjs_model
 
-# Patch Keras 3 InputLayer batch_shape mismatch for TF.js compatibility
-echo "Patching model.json input layer properties..."
-python3 -c "import json; d=json.load(open('tfjs_model/model.json')); layers=d['modelTopology']['model_config']['config']['layers']; [l['config'].update({'batchInputShape': l['config']['batch_shape']}) for l in layers if l['class_name']=='InputLayer']; json.dump(d, open('tfjs_model/model.json', 'w'))"
+# Patch Keras 3 InputLayer batch_shape mismatch and weights namespace for TF.js compatibility
+echo "Patching model.json structure..."
+python3 -c "
+import json
+d = json.load(open('tfjs_model/model.json'))
+# Patch InputLayer
+layers = d['modelTopology']['model_config']['config']['layers']
+for l in layers:
+    if l['class_name'] == 'InputLayer':
+        l['config']['batchInputShape'] = l['config']['batch_shape']
+# Patch weights manifest namespaces
+weights = d['weightsManifest'][0]['weights']
+for w in weights:
+    name = w['name']
+    if name.startswith('sequential/'):
+        name = name[len('sequential/'):]
+    if '/lstm_cell/' in name:
+        name = name.replace('/lstm_cell/', '/')
+    w['name'] = name
+json.dump(d, open('tfjs_model/model.json', 'w'))
+"
 
 echo "Conversion complete! Created directory 'tfjs_model/' with files:"
 ls -la tfjs_model/
