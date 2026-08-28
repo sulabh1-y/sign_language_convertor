@@ -22,3 +22,6 @@ Thumbs.db
 # Generated model checkpoints & tests (optional, recreate via training)
 saved_model/
 tfjs_model_test/
+
+# Local datasets
+dataset.json

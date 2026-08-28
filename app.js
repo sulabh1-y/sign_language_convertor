@@ -10,7 +10,7 @@ const CONFIG = {
     stabilityFrames: 7,       // Consecutive frames required to lock in a word
     cooldownFrames: 25,       // Wait after pushing a word before writing another
     modelPath: 'tfjs_model/model.json',
-    classes: ['Hello', 'Thank You', 'Goodbye']
+    classes: ['Closed', 'Open', 'Pointer']
 };
 
 const state = {
