@@ -135,22 +135,22 @@ function syncClassSelector() {
 // Helper to dynamically resolve TensorFlow.js graph signature discrepancies
 async function executeModel(model, inputTensor) {
     const trials = [
-        async () => await model.executeAsync({ 'keras_tensor': inputTensor }),
-        async () => await model.executeAsync({ 'keras_tensor': inputTensor }, ['Identity']),
-        async () => await model.executeAsync({ 'keras_tensor': inputTensor }, ['Identity:0']),
-        async () => await model.executeAsync({ 'keras_tensor:0': inputTensor }),
-        async () => await model.executeAsync(inputTensor)
+        { name: "Dict 'keras_tensor'", fn: async () => await model.executeAsync({ 'keras_tensor': inputTensor }) },
+        { name: "Dict 'keras_tensor' with outputs ['Identity']", fn: async () => await model.executeAsync({ 'keras_tensor': inputTensor }, ['Identity']) },
+        { name: "Dict 'keras_tensor' with outputs ['Identity:0']", fn: async () => await model.executeAsync({ 'keras_tensor': inputTensor }, ['Identity:0']) },
+        { name: "Dict 'keras_tensor:0'", fn: async () => await model.executeAsync({ 'keras_tensor:0': inputTensor }) },
+        { name: "Dict 'keras_tensor:0' with outputs ['Identity:0']", fn: async () => await model.executeAsync({ 'keras_tensor:0': inputTensor }, ['Identity:0']) },
+        { name: "Raw tensor", fn: async () => await model.executeAsync(inputTensor) }
     ];
-    let lastError = null;
+    let errors = [];
     for (const trial of trials) {
         try {
-            return await trial();
+            return await trial.fn();
         } catch (err) {
-            lastError = err;
-            continue;
+            errors.push(`[${trial.name}]: ${err.message}`);
         }
     }
-    throw lastError;
+    throw new Error("All trials failed:\n" + errors.join("\n"));
 }
 
 // 4. Load TensorFlow.js Model
