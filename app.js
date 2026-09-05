@@ -492,7 +492,7 @@ async function loadTensorFlowModel() {
         state.isModelLoaded = true;
         
         elements.statusModel.setAttribute('data-status', 'active');
-        elements.statusModel.querySelector('.status-text').innerText = 'READY (BiLSTM)';
+        elements.statusModel.querySelector('.status-text').innerText = 'READY (21 Classes)';
         elements.runtimeAcceleration.innerText = 'WebGL / WASM';
         
         // Warmup Model

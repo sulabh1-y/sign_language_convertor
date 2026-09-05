@@ -94,16 +94,14 @@ def main():
     print(f"  - X (Features matrix): {x_data.shape}")
     print(f"  - Y (Target matrix):   {y_data.shape}")
     
-    # 3. Define Advanced Bidirectional LSTM Network Architecture
+    # 3. Define Stacked LSTM Network Architecture (100% TF.js Compatible)
     model = Sequential([
         Input(shape=(sequence_length, num_features)),
-        Bidirectional(LSTM(128, return_sequences=True)),
-        BatchNormalization(),
+        LSTM(128, return_sequences=True),
         Dropout(0.3),
-        Bidirectional(LSTM(64, return_sequences=False)),
-        BatchNormalization(),
+        LSTM(64, return_sequences=False),
         Dropout(0.3),
-        Dense(64, activation='elu', kernel_regularizer=l2(0.001)),
+        Dense(64, activation='relu'),
         Dense(num_classes, activation='softmax')
     ])
     
