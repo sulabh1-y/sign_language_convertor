@@ -6,9 +6,9 @@ const CONFIG = {
     numLandmarks: 21,         // Hand landmarks
     coordsPerLandmark: 3,     // X, Y, Z
     totalFeatures: 63,        // 21 * 3 = 63
-    confidenceThreshold: 0.80, // Confidence required to trigger stabilization
-    stabilityFrames: 6,       // Consecutive frames required to lock in a word
-    cooldownFrames: 20,       // Wait after pushing a word before writing another
+    confidenceThreshold: 0.50, // Confidence required to lock in a word
+    stabilityFrames: 3,       // Consecutive frames required to lock in a word
+    cooldownFrames: 12,       // Wait after pushing a word before writing another
     modelPath: 'tfjs_model/model.json?v=' + Date.now(),
     classes: [
         'Bye', 'Closed', 'Eat', 'Good', 'Hello', 'Help', 'How are you',
@@ -691,10 +691,9 @@ function runInference() {
 
         const predictedLabel = CONFIG.classes[maxIdx];
         state.currentConfidence = maxProb;
+        state.activePredictionWord = predictedLabel;
 
         if (maxProb >= CONFIG.confidenceThreshold) {
-            state.activePredictionWord = predictedLabel;
-
             if (maxIdx === state.lastPredictedClass) {
                 state.consecutivePredictions++;
                 if (state.consecutivePredictions >= CONFIG.stabilityFrames) {
