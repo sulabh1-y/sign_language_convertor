@@ -9,7 +9,7 @@ const CONFIG = {
     confidenceThreshold: 0.80, // Confidence required to trigger stabilization
     stabilityFrames: 6,       // Consecutive frames required to lock in a word
     cooldownFrames: 20,       // Wait after pushing a word before writing another
-    modelPath: 'tfjs_model/model.json',
+    modelPath: 'tfjs_model/model.json?v=' + Date.now(),
     classes: [
         'Bye', 'Closed', 'Eat', 'Good', 'Hello', 'Help', 'How are you',
         'I / Me', 'Love', 'No', 'Open', 'Please', 'Pointer', 'Stop',
