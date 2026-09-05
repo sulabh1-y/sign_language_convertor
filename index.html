@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeafBuddy | Interactive Sign Language Translator</title>
-    <meta name="description" content="A premium, zero-backend, client-side sign language translator utilizing MediaPipe hand tracking and TensorFlow.js in the browser.">
+    <title>DeafBuddy Pro | Interactive Sign Language Translator & Learning Platform</title>
+    <meta name="description" content="A major project grade, 100% client-side sign language translator & interactive tutorial platform utilizing Bidirectional LSTM neural networks and MediaPipe hand tracking.">
     
     <!-- Modern Typography: Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,11 +36,23 @@
             <div class="brand-section">
                 <div class="logo-icon"><i class="fa-solid fa-hands-asl-interpreting"></i></div>
                 <div class="title-meta">
-                    <h1 id="app-title">DEAFBUDDY</h1>
-                    <p class="subtitle">Real-Time Sign Language Translation</p>
+                    <div class="title-row">
+                        <h1 id="app-title">DEAFBUDDY PRO</h1>
+                        <span class="badge badge-accent major-badge"><i class="fa-solid fa-graduation-cap"></i> Major Project Edition</span>
+                    </div>
+                    <p class="subtitle">Bi-Directional LSTM Real-Time Translation & Interactive Sign Guide</p>
                 </div>
             </div>
             
+            <div class="header-actions">
+                <button class="btn btn-secondary" id="btn-open-tutorial" title="Open Step-by-Step Sign Tutorial Guide">
+                    <i class="fa-solid fa-book-open-reader"></i> 📖 Step-by-Step Sign Guide
+                </button>
+                <button class="btn btn-primary" id="btn-open-practice" title="Launch Interactive Quiz / Practice Mode">
+                    <i class="fa-solid fa-gamepad"></i> 🎮 Practice Mode
+                </button>
+            </div>
+
             <div class="system-status-container">
                 <div class="status-badge" id="status-webcam" data-status="inactive">
                     <span class="status-dot"></span>
@@ -59,13 +71,13 @@
 
         <!-- Main Workspace -->
         <main class="app-main">
-            <!-- Left Column: Camera and Dataset Builder -->
+            <!-- Left Column: Camera, Practice Mode, and Dataset Builder -->
             <div class="main-column">
                 <!-- Left Panel: Webcam Stream and Drawing Overlay -->
                 <section class="viewport-card glass-panel" aria-labelledby="viewport-header">
                     <div class="panel-header">
                         <h2 id="viewport-header"><i class="fa-solid fa-camera"></i> Live Tracking Interface</h2>
-                        <span class="badge badge-accent">100% Client-Side</span>
+                        <span class="badge badge-accent">21-Class BiLSTM Engine</span>
                     </div>
                     
                     <div class="stream-wrapper">
@@ -98,7 +110,35 @@
                     </div>
                 </section>
 
-                <!-- Dataset Builder Card -->
+                <!-- Interactive Practice Mode Challenge Card -->
+                <section class="practice-card glass-panel" id="practice-section">
+                    <div class="panel-header">
+                        <h2><i class="fa-solid fa-bullseye"></i> Practice Challenge Mode</h2>
+                        <span class="badge badge-accent" id="practice-streak">🔥 Streak: 0</span>
+                    </div>
+
+                    <div class="practice-body">
+                        <div class="practice-challenge-box">
+                            <span class="challenge-label">Target Sign Challenge:</span>
+                            <div class="challenge-target">
+                                <span class="challenge-emoji" id="practice-target-emoji">👋</span>
+                                <span class="challenge-word" id="practice-target-word">Hello</span>
+                            </div>
+                            <p class="challenge-hint" id="practice-target-hint">Wave your open hand side-to-side in front of the camera.</p>
+                        </div>
+
+                        <div class="practice-status-container">
+                            <div class="practice-feedback" id="practice-feedback-text">Waiting for your sign...</div>
+                            <div class="practice-actions">
+                                <button class="btn btn-secondary" id="btn-next-challenge">
+                                    <i class="fa-solid fa-forward"></i> Next Sign
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Custom Dataset Builder Card -->
                 <section class="dataset-card glass-panel" aria-labelledby="dataset-header">
                     <div class="panel-header">
                         <h2 id="dataset-header"><i class="fa-solid fa-database"></i> Custom Dataset Builder</h2>
@@ -110,15 +150,7 @@
                             <label class="control-label">Target Gesture Label</label>
                             <div class="input-row">
                                 <select id="select-record-class" aria-label="Select gesture class to record">
-                                    <option value="Hello">Hello 👋</option>
-                                    <option value="Bye">Bye 🖐️</option>
-                                    <option value="How are you">How are you 🤝</option>
-                                    <option value="Thank you">Thank you 🙏</option>
-                                    <option value="Yes">Yes 👍</option>
-                                    <option value="No">No 👎</option>
-                                    <option value="Open">Open 👐</option>
-                                    <option value="Closed">Closed ✊</option>
-                                    <option value="Pointer">Pointer 👆</option>
+                                    <!-- Populated dynamically by JS syncClassSelector -->
                                 </select>
                                 <input type="text" id="input-custom-class" placeholder="Or add new label..." aria-label="Type custom gesture label">
                                 <button class="btn btn-action" id="btn-add-class" title="Add Class"><i class="fa-solid fa-plus"></i></button>
@@ -145,7 +177,7 @@
                     <div class="dataset-stats-container">
                         <h3 class="section-title">Recorded Samples Counter</h3>
                         <ul class="stats-list" id="dataset-stats-list">
-                            <li class="stats-item empty-state">No samples recorded yet.</li>
+                            <li class="stats-item empty-state">No custom samples recorded yet.</li>
                         </ul>
                     </div>
 
@@ -159,61 +191,31 @@
                     </div>
                 </section>
 
-                <!-- Gesture Reference Guide Card -->
+                <!-- Gesture Reference Guide Card with Category Pills & Search -->
                 <section class="reference-card glass-panel" aria-labelledby="reference-header">
                     <div class="panel-header">
                         <h2 id="reference-header"><i class="fa-solid fa-hands-sign"></i> Gesture Reference Guide</h2>
-                        <span class="badge badge-accent">Interactive Guide</span>
+                        <span class="badge badge-accent">21 Signs</span>
+                    </div>
+
+                    <div class="guide-toolbar">
+                        <div class="search-box">
+                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                            <input type="text" id="input-search-gestures" placeholder="Search 21 gesture signs..." aria-label="Search gestures">
+                        </div>
+
+                        <div class="category-pills">
+                            <button class="pill active" data-category="all">All</button>
+                            <button class="pill" data-category="greetings">Greetings</button>
+                            <button class="pill" data-category="questions">Questions</button>
+                            <button class="pill" data-category="sentiments">Sentiments</button>
+                            <button class="pill" data-category="actions">Actions</button>
+                            <button class="pill" data-category="poses">Poses</button>
+                        </div>
                     </div>
                     
-                    <p class="reference-desc">Make these hand movements in front of the camera to translate them to text/speech:</p>
-                    
-                    <div class="gesture-reference-grid">
-                        <div class="gesture-ref-item" data-gesture="Hello">
-                            <span class="gesture-emoji">👋</span>
-                            <span class="gesture-name">Hello</span>
-                            <span class="gesture-action">Wave hand outwards</span>
-                        </div>
-                        <div class="gesture-ref-item" data-gesture="Bye">
-                            <span class="gesture-emoji">🖐️</span>
-                            <span class="gesture-name">Bye</span>
-                            <span class="gesture-action">Wave hand side-to-side</span>
-                        </div>
-                        <div class="gesture-ref-item" data-gesture="How are you">
-                            <span class="gesture-emoji">🤝</span>
-                            <span class="gesture-name">How are you</span>
-                            <span class="gesture-action">Push hand forward opening it</span>
-                        </div>
-                        <div class="gesture-ref-item" data-gesture="Thank you">
-                            <span class="gesture-emoji">🙏</span>
-                            <span class="gesture-name">Thank you</span>
-                            <span class="gesture-action">Move flat hand down & forward</span>
-                        </div>
-                        <div class="gesture-ref-item" data-gesture="Yes">
-                            <span class="gesture-emoji">👍</span>
-                            <span class="gesture-name">Yes</span>
-                            <span class="gesture-action">Nod closed fist up & down</span>
-                        </div>
-                        <div class="gesture-ref-item" data-gesture="No">
-                            <span class="gesture-emoji">👎</span>
-                            <span class="gesture-name">No</span>
-                            <span class="gesture-action">Tap index & middle to thumb</span>
-                        </div>
-                        <div class="gesture-ref-item" data-gesture="Open">
-                            <span class="gesture-emoji">👐</span>
-                            <span class="gesture-name">Open</span>
-                            <span class="gesture-action">Hold hand open & flat</span>
-                        </div>
-                        <div class="gesture-ref-item" data-gesture="Closed">
-                            <span class="gesture-emoji">✊</span>
-                            <span class="gesture-name">Closed</span>
-                            <span class="gesture-action">Hold a closed fist</span>
-                        </div>
-                        <div class="gesture-ref-item" data-gesture="Pointer">
-                            <span class="gesture-emoji">👆</span>
-                            <span class="gesture-name">Pointer</span>
-                            <span class="gesture-action">Point index finger upward</span>
-                        </div>
+                    <div class="gesture-reference-grid" id="gesture-reference-grid">
+                        <!-- Populated dynamically by app.js rendering logic -->
                     </div>
                 </section>
             </div>
@@ -239,15 +241,24 @@
                     </div>
                 </div>
 
-                <!-- Word History and Sentence Assembly -->
+                <!-- Word History and Smart Sentence Assembly -->
                 <div class="sentence-section">
-                    <h3 class="section-title">Assembled Transcript</h3>
+                    <div class="section-header-row">
+                        <h3 class="section-title">Smart Assembled Sentence</h3>
+                        <span class="badge badge-accent">NLP Smoother</span>
+                    </div>
                     <div class="sentence-box">
-                        <textarea id="sentence-history" readonly placeholder="Translated words will appear here to form sentences..."></textarea>
+                        <textarea id="sentence-history" readonly placeholder="Translated words will auto-assemble here into natural sentences..."></textarea>
                     </div>
                     <div class="sentence-actions">
+                        <button class="btn btn-action btn-accent" id="btn-auto-grammar" title="Auto-Refine recognized words into fluent English">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Grammar
+                        </button>
                         <button class="btn btn-action" id="btn-tts" aria-label="Speak sentence history">
                             <i class="fa-solid fa-volume-high"></i> Speak
+                        </button>
+                        <button class="btn btn-action" id="btn-copy-history" title="Copy transcript to clipboard">
+                            <i class="fa-solid fa-copy"></i> Copy
                         </button>
                         <button class="btn btn-action btn-danger" id="btn-clear-history" aria-label="Clear sentence history">
                             <i class="fa-solid fa-trash-can"></i> Clear
@@ -268,7 +279,7 @@
                         </div>
                         <div class="telemetry-item">
                             <span class="label">Classes Mapped</span>
-                            <span class="value" id="telemetry-classes">3 (Hello, Thank You, Goodbye)</span>
+                            <span class="value" id="telemetry-classes">21 Classes</span>
                         </div>
                         <div class="telemetry-item">
                             <span class="label">TF.js Memory</span>
@@ -281,8 +292,27 @@
 
         <!-- Footer -->
         <footer class="app-footer">
-            <p>DeafBuddy Real-Time Client-Side Translator &bull; Built with MediaPipe Hands & TensorFlow.js</p>
+            <p>DeafBuddy Pro &bull; Major Project Edition &bull; Powered by MediaPipe & TensorFlow.js Bidirectional LSTM</p>
         </footer>
+    </div>
+
+    <!-- Step-by-Step Sign Tutorial Guide Modal -->
+    <div class="modal-overlay" id="tutorial-modal" style="display: none;">
+        <div class="modal-card glass-panel">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fa-solid fa-book-open-reader"></i>
+                    <h2>Step-by-Step Sign Language Tutorial Guide</h2>
+                </div>
+                <button class="modal-close-btn" id="btn-close-tutorial"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <p class="modal-description">Comprehensive physical instruction guide for all 21 sign language vocabulary gestures supported by DeafBuddy Pro.</p>
+            
+            <div class="tutorial-grid" id="tutorial-cards-container">
+                <!-- Rendered dynamically by app.js -->
+            </div>
+        </div>
     </div>
 
     <!-- Application Script -->

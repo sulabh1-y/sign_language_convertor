@@ -1,4 +1,4 @@
-// app.js - DeafBuddy Sign Language Translation & Dataset Collector Logic
+// app.js - DeafBuddy Pro Major Project Sign Language Translation & Interactive Guide Engine
 
 // 1. Configuration & Global State
 const CONFIG = {
@@ -6,13 +6,190 @@ const CONFIG = {
     numLandmarks: 21,         // Hand landmarks
     coordsPerLandmark: 3,     // X, Y, Z
     totalFeatures: 63,        // 21 * 3 = 63
-    confidenceThreshold: 0.82, // Confidence required to trigger stabilization
-    stabilityFrames: 7,       // Consecutive frames required to lock in a word
-    cooldownFrames: 25,       // Wait after pushing a word before writing another
+    confidenceThreshold: 0.80, // Confidence required to trigger stabilization
+    stabilityFrames: 6,       // Consecutive frames required to lock in a word
+    cooldownFrames: 20,       // Wait after pushing a word before writing another
     modelPath: 'tfjs_model/model.json',
-    classes: ['Bye', 'Closed', 'Hello', 'How are you', 'No', 'Open', 'Pointer', 'Thank you', 'Yes']
+    classes: [
+        'Bye', 'Closed', 'Eat', 'Good', 'Hello', 'Help', 'How are you',
+        'I / Me', 'Love', 'No', 'Open', 'Please', 'Pointer', 'Stop',
+        'Thank you', 'Water', 'Welcome', 'What', 'Where', 'Yes', 'You'
+    ]
 };
 
+// Comprehensive Metadata & 3-Step Physical Tutorial Data for all 21 Signs
+const GESTURE_METADATA = {
+    'Hello': {
+        emoji: '👋',
+        category: 'greetings',
+        action: 'Wave hand outwards side-to-side',
+        step1: 'Position hand at shoulder height with palm facing forward.',
+        step2: 'Smoothly sweep wrist X position from left to right.',
+        step3: 'Return wrist to center while keeping fingers open.'
+    },
+    'Bye': {
+        emoji: '🖐️',
+        category: 'greetings',
+        action: 'Wave open palm side-to-side',
+        step1: 'Raise flat open palm facing camera.',
+        step2: 'Oscillate wrist rapidly left and right.',
+        step3: 'Lower hand after 2-3 wave cycles.'
+    },
+    'Thank you': {
+        emoji: '🙏',
+        category: 'greetings',
+        action: 'Move flat hand down & forward',
+        step1: 'Touch fingertips of flat open hand to chin or lips.',
+        step2: 'Move hand outward and downward toward camera.',
+        step3: 'End with palm facing slightly upward.'
+    },
+    'Welcome': {
+        emoji: '🤝',
+        category: 'greetings',
+        action: 'Sweep flat hand inward towards chest',
+        step1: 'Extend flat open hand outward with palm facing up.',
+        step2: 'Sweep arm inward in a curve toward your body.',
+        step3: 'Rest hand near waist level.'
+    },
+    'Please': {
+        emoji: '🤲',
+        category: 'greetings',
+        action: 'Circular motion of flat palm on chest',
+        step1: 'Place flat right palm flat against chest.',
+        step2: 'Rub hand in clockwise circles.',
+        step3: 'Complete 2 small circles.'
+    },
+    'How are you': {
+        emoji: '❓',
+        category: 'questions',
+        action: 'Push fist forward opening into open palm',
+        step1: 'Form loose fist with knuckles together near chest.',
+        step2: 'Roll hands outward while extending fingers open.',
+        step3: 'Point open palms toward person.'
+    },
+    'What': {
+        emoji: '🤷',
+        category: 'questions',
+        action: 'Shake open palms side-to-side',
+        step1: 'Hold both hands out at waist level, palms up.',
+        step2: 'Shake hands horizontally side-to-side.',
+        step3: 'Tilt head slightly inquiringly.'
+    },
+    'Where': {
+        emoji: '📍',
+        category: 'questions',
+        action: 'Shake index finger side-to-side',
+        step1: 'Point index finger straight up.',
+        step2: 'Pivot wrist side-to-side like a pendulum.',
+        step3: 'Hold for 2 seconds.'
+    },
+    'I / Me': {
+        emoji: '👤',
+        category: 'questions',
+        action: 'Point index finger toward chest',
+        step1: 'Extend index finger out.',
+        step2: 'Draw finger back to tap chest center.',
+        step3: 'Hold briefly at chest.'
+    },
+    'You': {
+        emoji: '👉',
+        category: 'questions',
+        action: 'Point index finger straight forward',
+        step1: 'Point index finger directly at camera/listener.',
+        step2: 'Push hand forward 2-3 inches.',
+        step3: 'Hold finger stable.'
+    },
+    'Yes': {
+        emoji: '👍',
+        category: 'sentiments',
+        action: 'Nod closed fist up and down',
+        step1: 'Make a fist at shoulder height.',
+        step2: 'Bend wrist down and back up (nodding motion).',
+        step3: 'Repeat nod twice.'
+    },
+    'No': {
+        emoji: '👎',
+        category: 'sentiments',
+        action: 'Snap index and middle fingers to thumb',
+        step1: 'Extend index and middle fingers with thumb open.',
+        step2: 'Snap index & middle fingers down to tap thumb tip.',
+        step3: 'Repeat snap twice.'
+    },
+    'Good': {
+        emoji: '👌',
+        category: 'sentiments',
+        action: 'Touch fingers to mouth and extend out',
+        step1: 'Touch flat fingertips or OK-sign to chin.',
+        step2: 'Move hand forward into flat open palm.',
+        step3: 'Hold palm steady.'
+    },
+    'Help': {
+        emoji: '🆘',
+        category: 'sentiments',
+        action: 'Lift thumb-up fist with flat palm',
+        step1: 'Place thumb-up right fist on flat left palm.',
+        step2: 'Lift both hands upward together.',
+        step3: 'Hold at chest level.'
+    },
+    'Love': {
+        emoji: '❤️',
+        category: 'sentiments',
+        action: 'Form ILY sign (Thumb, Index, Pinky extended)',
+        step1: 'Extend thumb, index, and pinky (curl middle/ring).',
+        step2: 'Move hand forward slightly towards camera.',
+        step3: 'Pulse hand gently.'
+    },
+    'Eat': {
+        emoji: '🍽️',
+        category: 'actions',
+        action: 'Tap pinched fingertips to mouth',
+        step1: 'Bring all fingertips to touch thumb tip (bird beak).',
+        step2: 'Tap fingertips near lips repeatedly.',
+        step3: 'Repeat tap 2-3 times.'
+    },
+    'Water': {
+        emoji: '🚰',
+        category: 'actions',
+        action: 'Tap W-hand index finger to chin',
+        step1: 'Form W shape with index, middle, and ring fingers.',
+        step2: 'Tap index finger side against chin twice.',
+        step3: 'Lower hand.'
+    },
+    'Stop': {
+        emoji: '🛑',
+        category: 'actions',
+        action: 'Chop flat hand onto open palm',
+        step1: 'Raise flat hand vertical with palm facing inward.',
+        step2: 'Bring hand down sharply onto flat open palm.',
+        step3: 'Hold abruptly.'
+    },
+    'Open': {
+        emoji: '👐',
+        category: 'poses',
+        action: 'Hold hand open and flat',
+        step1: 'Extend all 5 fingers straight up.',
+        step2: 'Hold hand motionless in camera view.',
+        step3: 'Keep fingers separated.'
+    },
+    'Closed': {
+        emoji: '✊',
+        category: 'poses',
+        action: 'Hold a tight closed fist',
+        step1: 'Curl all 4 fingers firmly into palm.',
+        step2: 'Cross thumb over fingers.',
+        step3: 'Hold fist stable.'
+    },
+    'Pointer': {
+        emoji: '👆',
+        category: 'poses',
+        action: 'Point index finger upward',
+        step1: 'Curl thumb, middle, ring, pinky into fist.',
+        step2: 'Extend index finger straight upward.',
+        step3: 'Hold pointer steady.'
+    }
+};
+
+// Global Application State
 const state = {
     // Inference Engine State
     model: null,
@@ -29,29 +206,28 @@ const state = {
     lastFrameTime: performance.now(),
     latency: 0,
     noHandFramesCount: 0,
+    rawRecognizedWords: [],
+
+    // Practice Mode State
+    practice: {
+        active: false,
+        targetWord: 'Hello',
+        streak: 0,
+        unlockedCount: 0
+    },
+
+    // UI Toolbar State
+    activeCategory: 'all',
+    searchQuery: '',
 
     // Dataset Collector State
     isRecording: false,
     recordingLabel: '',
-    recordingFrames: [],      // Array of 63-element frames for active record
-    dataset: [],              // Array of { label: string, sequence: number[][] }
-    countdownValue: 0,        // Active countdown overlay (3, 2, 1)
-    countdownInterval: null
+    recordingFrames: [],      
+    dataset: []
 };
 
-// Hand Connections Map (Pairs of joint IDs)
-const HAND_CONNECTIONS = [
-    [0, 1], [1, 2], [2, 3], [3, 4],       // Thumb
-    [0, 5], [5, 6], [6, 7], [7, 8],       // Index Finger
-    [5, 9], [9, 10], [10, 11], [11, 12],  // Middle Finger
-    [9, 13], [13, 14], [14, 15], [15, 16], // Ring Finger
-    [13, 17], [0, 17], [17, 18], [18, 19], [19, 20] // Pinky
-];
-
-// Fingertips indices
-const FINGERTIPS = [4, 8, 12, 16, 20];
-
-// 2. DOM Elements
+// DOM Elements
 const elements = {
     webcamFeed: document.getElementById('webcam-feed'),
     trackingCanvas: document.getElementById('tracking-canvas'),
@@ -71,7 +247,27 @@ const elements = {
     btnToggleCamera: document.getElementById('btn-toggle-camera'),
     btnToggleTranslation: document.getElementById('btn-toggle-translation'),
     btnTts: document.getElementById('btn-tts'),
+    btnAutoGrammar: document.getElementById('btn-auto-grammar'),
+    btnCopyHistory: document.getElementById('btn-copy-history'),
     btnClearHistory: document.getElementById('btn-clear-history'),
+
+    // Guide & Tutorial Elements
+    btnOpenTutorial: document.getElementById('btn-open-tutorial'),
+    btnOpenPractice: document.getElementById('btn-open-practice'),
+    tutorialModal: document.getElementById('tutorial-modal'),
+    btnCloseTutorial: document.getElementById('btn-close-tutorial'),
+    tutorialCardsContainer: document.getElementById('tutorial-cards-container'),
+    inputSearchGestures: document.getElementById('input-search-gestures'),
+    gestureReferenceGrid: document.getElementById('gesture-reference-grid'),
+
+    // Practice Challenge Elements
+    practiceSection: document.getElementById('practice-section'),
+    practiceTargetEmoji: document.getElementById('practice-target-emoji'),
+    practiceTargetWord: document.getElementById('practice-target-word'),
+    practiceTargetHint: document.getElementById('practice-target-hint'),
+    practiceFeedbackText: document.getElementById('practice-feedback-text'),
+    practiceStreakBadge: document.getElementById('practice-streak'),
+    btnNextChallenge: document.getElementById('btn-next-challenge'),
 
     // Dataset Builder Elements
     selectRecordClass: document.getElementById('select-record-class'),
@@ -92,16 +288,17 @@ const ctx = elements.trackingCanvas.getContext('2d');
 let cameraHelper = null;
 let handsDetector = null;
 
-// 3. Application Initialization
+// Application Initialization
 window.addEventListener('DOMContentLoaded', async () => {
     setupCanvas();
     syncClassSelector();
+    renderGestureGuideCards();
+    renderTutorialCards();
     setupEventListeners();
     await loadTensorFlowModel();
     initMediaPipeHands();
 });
 
-// Set canvas dimensions and draw standby message
 function setupCanvas() {
     elements.trackingCanvas.width = 640;
     elements.trackingCanvas.height = 480;
@@ -115,432 +312,412 @@ function setupCanvas() {
     ctx.fillText('Camera Inactive. Click "Start Webcam" to begin.', elements.trackingCanvas.width / 2, elements.trackingCanvas.height / 2);
 }
 
-// Populate class selector dropdown based on CONFIG.classes
 function syncClassSelector() {
-    // Sort classes alphabetically to ensure perfect index alignment with Python's model output mapping!
-    CONFIG.classes.sort();
-    
     elements.selectRecordClass.innerHTML = '';
-    CONFIG.classes.forEach(cls => {
+    const sortedClasses = [...CONFIG.classes].sort();
+    sortedClasses.forEach(cls => {
+        const meta = GESTURE_METADATA[cls] || { emoji: '🖐️' };
         const opt = document.createElement('option');
         opt.value = cls;
-        opt.innerText = cls;
+        opt.innerText = `${cls} ${meta.emoji}`;
         elements.selectRecordClass.appendChild(opt);
     });
-    
-    // Update labels count
-    document.getElementById('telemetry-classes').innerText = `${CONFIG.classes.length} (${CONFIG.classes.join(', ')})`;
 }
 
-// 4. Load TensorFlow.js Model
+// Render Reference Cards in Grid
+function renderGestureGuideCards() {
+    elements.gestureReferenceGrid.innerHTML = '';
+    const sortedClasses = [...CONFIG.classes].sort();
+
+    sortedClasses.forEach(cls => {
+        const meta = GESTURE_METADATA[cls] || { emoji: '🖐️', category: 'all', action: 'Hand sign movement' };
+        
+        // Category Filter
+        if (state.activeCategory !== 'all' && meta.category !== state.activeCategory) return;
+        
+        // Search Filter
+        if (state.searchQuery.trim() !== '') {
+            const query = state.searchQuery.toLowerCase();
+            if (!cls.toLowerCase().includes(query) && !meta.action.toLowerCase().includes(query)) return;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'gesture-ref-item';
+        card.setAttribute('data-gesture', cls);
+        card.innerHTML = `
+            <span class="gesture-emoji">${meta.emoji}</span>
+            <span class="gesture-name">${cls}</span>
+            <span class="gesture-action">${meta.action}</span>
+            <button class="btn-card-tutorial" title="Learn Step-by-Step Tutorial" onclick="openSingleTutorial('${cls}')">
+                <i class="fa-solid fa-book"></i> Tutorial
+            </button>
+        `;
+        elements.gestureReferenceGrid.appendChild(card);
+    });
+}
+
+// Render Tutorial Cards in Modal
+function renderTutorialCards() {
+    elements.tutorialCardsContainer.innerHTML = '';
+    const sortedClasses = [...CONFIG.classes].sort();
+
+    sortedClasses.forEach(cls => {
+        const meta = GESTURE_METADATA[cls] || {
+            emoji: '🖐️', category: 'general', action: 'Gesture motion',
+            step1: 'Position hand.', step2: 'Perform gesture motion.', step3: 'Hold position.'
+        };
+
+        const item = document.createElement('div');
+        item.className = 'tutorial-card glass-panel';
+        item.id = `tutorial-card-${cls.replace(/\s+/g, '-')}`;
+        item.innerHTML = `
+            <div class="tutorial-card-header">
+                <span class="tutorial-emoji">${meta.emoji}</span>
+                <div class="tutorial-meta">
+                    <h3 class="tutorial-word">${cls}</h3>
+                    <span class="badge badge-accent category-badge">${meta.category.toUpperCase()}</span>
+                </div>
+            </div>
+
+            <p class="tutorial-summary">${meta.action}</p>
+
+            <div class="tutorial-steps-timeline">
+                <div class="step-item">
+                    <span class="step-num">1</span>
+                    <div class="step-info">
+                        <strong>Starting Position:</strong> ${meta.step1}
+                    </div>
+                </div>
+                <div class="step-item">
+                    <span class="step-num">2</span>
+                    <div class="step-info">
+                        <strong>Movement & Action:</strong> ${meta.step2}
+                    </div>
+                </div>
+                <div class="step-item">
+                    <span class="step-num">3</span>
+                    <div class="step-info">
+                        <strong>Ending Pose:</strong> ${meta.step3}
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-try-live" onclick="tryLiveGesture('${cls}')">
+                <i class="fa-solid fa-camera"></i> Try It Live
+            </button>
+        `;
+        elements.tutorialCardsContainer.appendChild(item);
+    });
+}
+
+window.openSingleTutorial = function(cls) {
+    elements.tutorialModal.style.display = 'flex';
+    const targetCard = document.getElementById(`tutorial-card-${cls.replace(/\s+/g, '-')}`);
+    if (targetCard) {
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetCard.classList.add('highlight-tutorial');
+        setTimeout(() => targetCard.classList.remove('highlight-tutorial'), 2000);
+    }
+};
+
+window.tryLiveGesture = function(cls) {
+    elements.tutorialModal.style.display = 'none';
+    state.practice.targetWord = cls;
+    const meta = GESTURE_METADATA[cls] || { emoji: '👋', action: 'Sign movement' };
+    elements.practiceTargetEmoji.innerText = meta.emoji;
+    elements.practiceTargetWord.innerText = cls;
+    elements.practiceTargetHint.innerText = meta.action;
+    elements.practiceFeedbackText.innerText = `Ready! Perform '${cls}' in front of camera.`;
+    elements.practiceSection.scrollIntoView({ behavior: 'smooth' });
+
+    if (!state.isCameraActive) {
+        elements.btnToggleCamera.click();
+    }
+};
+
+// Event Listeners Setup
+function setupEventListeners() {
+    elements.btnToggleCamera.addEventListener('click', toggleCamera);
+    elements.btnToggleTranslation.addEventListener('click', toggleTranslation);
+    elements.btnTts.addEventListener('click', speakSentence);
+    elements.btnAutoGrammar.addEventListener('click', autoRefineGrammar);
+    elements.btnCopyHistory.addEventListener('click', copyTranscript);
+    elements.btnClearHistory.addEventListener('click', clearHistory);
+
+    // Tutorial Modal
+    elements.btnOpenTutorial.addEventListener('click', () => elements.tutorialModal.style.display = 'flex');
+    elements.btnCloseTutorial.addEventListener('click', () => elements.tutorialModal.style.display = 'none');
+    elements.tutorialModal.addEventListener('click', (e) => {
+        if (e.target === elements.tutorialModal) elements.tutorialModal.style.display = 'none';
+    });
+
+    // Practice Mode Button
+    elements.btnOpenPractice.addEventListener('click', () => {
+        elements.practiceSection.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // Next Challenge Button
+    elements.btnNextChallenge.addEventListener('click', setRandomChallenge);
+
+    // Category Filter Pills
+    document.querySelectorAll('.category-pills .pill').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.category-pills .pill').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            state.activeCategory = e.target.getAttribute('data-category');
+            renderGestureGuideCards();
+        });
+    });
+
+    // Search Bar
+    elements.inputSearchGestures.addEventListener('input', (e) => {
+        state.searchQuery = e.target.value;
+        renderGestureGuideCards();
+    });
+
+    // Dataset Builder Actions
+    elements.btnAddClass.addEventListener('click', addCustomClass);
+    elements.btnRecordSequence.addEventListener('click', startRecordingSequence);
+    elements.btnDownloadDataset.addEventListener('click', downloadDataset);
+    elements.btnResetDataset.addEventListener('click', resetDataset);
+}
+
+// Load TensorFlow.js LayersModel
 async function loadTensorFlowModel() {
     try {
-        console.log("Loading TensorFlow.js model from:", CONFIG.modelPath);
         elements.statusModel.setAttribute('data-status', 'loading');
-        elements.statusModel.querySelector('.status-text').innerText = 'LOADING';
-
+        elements.statusModel.querySelector('.status-text').innerText = 'LOADING...';
+        
         state.model = await tf.loadLayersModel(CONFIG.modelPath);
         state.isModelLoaded = true;
         
-        const backend = tf.getBackend().toUpperCase();
-        console.log(`Model loaded successfully. Acceleration: ${backend}`);
+        elements.statusModel.setAttribute('data-status', 'active');
+        elements.statusModel.querySelector('.status-text').innerText = 'READY (BiLSTM)';
+        elements.runtimeAcceleration.innerText = 'WebGL / WASM';
         
-        elements.statusModel.setAttribute('data-status', 'ready');
-        elements.statusModel.querySelector('.status-text').innerText = 'READY';
-        elements.runtimeAcceleration.innerText = backend;
-        
-        // Warm up model with a dummy inference pass
+        // Warmup Model
         const dummyInput = tf.zeros([1, CONFIG.sequenceLength, CONFIG.totalFeatures]);
-        const dummyOutput = state.model.predict(dummyInput);
+        const warmupPred = state.model.predict(dummyInput);
+        warmupPred.dispose();
         dummyInput.dispose();
-        dummyOutput.dispose();
-        
-        updateMemoryDiagnostics();
-        elements.btnToggleTranslation.removeAttribute('disabled');
     } catch (error) {
-        elements.statusModel.setAttribute('data-status', 'inactive');
-        elements.statusModel.querySelector('.status-text').innerText = 'ERR: ' + error.message.substring(0, 30);
-        
-        // Output detailed error to history block
-        if (elements.sentenceHistory) {
-            const inputsStr = state.model && state.model.inputs ? JSON.stringify(state.model.inputs) : 'undefined';
-            const outputsStr = state.model && state.model.outputs ? JSON.stringify(state.model.outputs) : 'undefined';
-            elements.sentenceHistory.innerText = `[LOAD ERROR] ${error.message}\n\nModel Inputs: ${inputsStr}\nModel Outputs: ${outputsStr}\n\nStack:\n${error.stack || ''}`;
-        }
-        
-        // Trigger browser alert popup so the user can see it immediately
-        alert("TFJS LOAD ERROR:\n" + error.message);
-        
-        createMockModel();
+        console.error('Error loading TensorFlow.js model:', error);
+        elements.statusModel.setAttribute('data-status', 'error');
+        elements.statusModel.querySelector('.status-text').innerText = 'FAILED';
     }
 }
 
-// Fallback Mock Model for UI robustness if files aren't converted yet
-function createMockModel() {
-    state.model = {
-        predict: (tensor) => {
-            return tf.tidy(() => {
-                const batch = tensor.shape[0];
-                const logits = tf.randomNormal([batch, CONFIG.classes.length]);
-                return tf.softmax(logits);
-            });
-        }
-    };
-    state.isModelLoaded = true;
-    elements.statusModel.setAttribute('data-status', 'ready');
-    elements.statusModel.querySelector('.status-text').innerText = 'FALLBACK';
-    elements.runtimeAcceleration.innerText = 'CPU (MOCK)';
-    elements.btnToggleTranslation.removeAttribute('disabled');
-}
-
-// 5. Initialize MediaPipe Hands
+// MediaPipe Hands Initialization
 function initMediaPipeHands() {
-    console.log("Initializing MediaPipe Hands...");
-    
     handsDetector = new Hands({
-        locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
     });
 
     handsDetector.setOptions({
         maxNumHands: 1,
         modelComplexity: 1,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minDetectionConfidence: 0.65,
+        minTrackingConfidence: 0.65
     });
 
-    handsDetector.onResults(onResults);
+    handsDetector.onResults(onHandResults);
 }
 
-// 6. MediaPipe Frame Callback
-function onResults(results) {
-    ctx.save();
-    ctx.clearRect(0, 0, elements.trackingCanvas.width, elements.trackingCanvas.height);
-    
-    // Draw background video feed
-    if (results.image) {
-        ctx.drawImage(results.image, 0, 0, elements.trackingCanvas.width, elements.trackingCanvas.height);
+// Webcam Toggle
+async function toggleCamera() {
+    if (state.isCameraActive) {
+        if (cameraHelper) {
+            await cameraHelper.stop();
+            cameraHelper = null;
+        }
+        state.isCameraActive = false;
+        elements.btnToggleCamera.innerHTML = '<i class="fa-solid fa-power-off"></i> Start Webcam';
+        elements.btnToggleCamera.classList.remove('btn-danger');
+        elements.btnToggleCamera.classList.add('btn-primary');
+        elements.btnToggleTranslation.disabled = true;
+        elements.statusWebcam.setAttribute('data-status', 'inactive');
+        elements.statusWebcam.querySelector('.status-text').innerText = 'OFF';
+        setupCanvas();
     } else {
-        ctx.fillStyle = '#04030a';
-        ctx.fillRect(0, 0, elements.trackingCanvas.width, elements.trackingCanvas.height);
+        try {
+            cameraHelper = new Camera(elements.webcamFeed, {
+                onFrame: async () => {
+                    if (state.isCameraActive && handsDetector) {
+                        await handsDetector.send({ image: elements.webcamFeed });
+                    }
+                },
+                width: 640,
+                height: 480
+            });
+            await cameraHelper.start();
+            state.isCameraActive = true;
+            elements.btnToggleCamera.innerHTML = '<i class="fa-solid fa-stop"></i> Stop Webcam';
+            elements.btnToggleCamera.classList.remove('btn-primary');
+            elements.btnToggleCamera.classList.add('btn-danger');
+            elements.btnToggleTranslation.disabled = false;
+            elements.statusWebcam.setAttribute('data-status', 'active');
+            elements.statusWebcam.querySelector('.status-text').innerText = 'LIVE';
+        } catch (err) {
+            console.error('Failed to start camera:', err);
+            alert('Camera access denied or unavailable.');
+        }
     }
-    
-    // Calculate FPS
+}
+
+function toggleTranslation() {
+    state.isTranslationPaused = !state.isTranslationPaused;
+    if (state.isTranslationPaused) {
+        elements.btnToggleTranslation.innerHTML = '<i class="fa-solid fa-play"></i> Resume Translation';
+        elements.btnToggleTranslation.classList.remove('btn-secondary');
+        elements.btnToggleTranslation.classList.add('btn-primary');
+    } else {
+        elements.btnToggleTranslation.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Translation';
+        elements.btnToggleTranslation.classList.remove('btn-primary');
+        elements.btnToggleTranslation.classList.add('btn-secondary');
+    }
+}
+
+// MediaPipe Hand Detection & Frame Processing
+function onHandResults(results) {
     const now = performance.now();
     state.fps = Math.round(1000 / (now - state.lastFrameTime));
+    state.latency = Math.round(now - state.lastFrameTime);
     state.lastFrameTime = now;
-    elements.hudFps.innerText = state.fps.toString().padStart(2, '0');
+    
+    elements.hudFps.innerText = state.fps;
+    elements.hudLatency.innerText = `${state.latency} ms`;
 
-    // Decrease active prediction cooldown counter
-    if (state.cooldownCounter > 0) {
-        state.cooldownCounter--;
-    }
+    ctx.save();
+    ctx.clearRect(0, 0, elements.trackingCanvas.width, elements.trackingCanvas.height);
+    ctx.drawImage(results.image, 0, 0, elements.trackingCanvas.width, elements.trackingCanvas.height);
 
-    // Process Hand Landmarks
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        elements.statusDetection.setAttribute('data-status', 'active');
+        elements.statusDetection.querySelector('.status-text').innerText = 'TRACKING';
         state.noHandFramesCount = 0;
-        elements.statusDetection.setAttribute('data-status', 'detected');
-        elements.statusDetection.querySelector('.status-text').innerText = 'DETECTED';
-        
-        const handLandmarks = results.multiHandLandmarks[0];
-        
-        // Extract coordinates with wrist-relative normalization and max-absolute scaling
-        const base_x = handLandmarks[0].x;
-        const base_y = handLandmarks[0].y;
-        
-        const relativeCoords = [];
-        for (let i = 0; i < handLandmarks.length; i++) {
-            relativeCoords.push(handLandmarks[i].x - base_x);
-            relativeCoords.push(handLandmarks[i].y - base_y);
+
+        const landmarks = results.multiHandLandmarks[0];
+        drawHandSkeleton(landmarks);
+
+        // Normalize landmarks (Wrist-relative)
+        const wrist = landmarks[0];
+        const normalizedCoords = [];
+        for (let i = 0; i < 21; i++) {
+            normalizedCoords.push(landmarks[i].x - wrist.x);
+            normalizedCoords.push(landmarks[i].y - wrist.y);
+            normalizedCoords.push(landmarks[i].z - wrist.z);
         }
-        
-        let maxVal = 0;
-        for (let i = 0; i < relativeCoords.length; i++) {
-            const absVal = Math.abs(relativeCoords[i]);
-            if (absVal > maxVal) {
-                maxVal = absVal;
-            }
+
+        // Recording mode handler
+        if (state.isRecording) {
+            handleRecordingFrame(normalizedCoords);
         }
-        
-        const coords = [];
-        for (let i = 0; i < handLandmarks.length; i++) {
-            const normX = maxVal > 0 ? (handLandmarks[i].x - base_x) / maxVal : 0;
-            const normY = maxVal > 0 ? (handLandmarks[i].y - base_y) / maxVal : 0;
-            coords.push(normX, normY, 0.0); // Pad Z with 0.0 to match the 3D shape (63 features)
-        }
-        
-        // 1. Handle Active Dataset Recording
-        if (state.isRecording && state.countdownValue === 0) {
-            handleDatasetRecording(coords);
-        }
-        
-        // 2. Manage Inference Sequence Buffer (only run inference if not recording)
-        if (!state.isRecording) {
-            state.sequenceBuffer.push(coords);
+
+        // Live Inference Handler
+        if (!state.isTranslationPaused && state.isModelLoaded) {
+            state.sequenceBuffer.push(normalizedCoords);
             if (state.sequenceBuffer.length > CONFIG.sequenceLength) {
                 state.sequenceBuffer.shift();
             }
+
             updateBufferTelemetry();
-            
-            // Run inference
-            if (state.isModelLoaded && !state.isTranslationPaused) {
-                if (state.sequenceBuffer.length === CONFIG.sequenceLength) {
-                    runInference();
-                }
+
+            if (state.sequenceBuffer.length === CONFIG.sequenceLength) {
+                runInference();
             }
         }
-        
-        // 3. Draw visual hand skeleton overlay
-        drawSkeleton(handLandmarks);
     } else {
-        // No hand visible
+        elements.statusDetection.setAttribute('data-status', 'none');
+        elements.statusDetection.querySelector('.status-text').innerText = 'NONE';
         state.noHandFramesCount++;
-        
-        if (state.isRecording && state.countdownValue === 0) {
-            elements.recordingStateLabel.innerText = `Recording PAUSED: Show hand!`;
-        }
-        
-        if (state.noHandFramesCount > 5) {
-            elements.statusDetection.setAttribute('data-status', 'none');
-            elements.statusDetection.querySelector('.status-text').innerText = 'NONE';
-            
-            // Clear prediction states if hand disappears
-            if (!state.isRecording) {
-                state.activePredictionWord = 'WAITING...';
-                state.currentConfidence = 0;
-                updatePredictionUI();
-                
-                // Decay rolling inference buffer
-                if (state.sequenceBuffer.length > 0) {
-                    state.sequenceBuffer.shift();
-                    updateBufferTelemetry();
-                }
-            }
-        }
-    }
-    
-    // Draw graphical countdown overlay if countdown is active
-    if (state.countdownValue > 0) {
-        drawCountdownOverlay();
-    }
-    
-    ctx.restore();
-    updateMemoryDiagnostics();
-}
 
-// 7. Render graphical countdown overlay
-function drawCountdownOverlay() {
-    ctx.save();
-    ctx.fillStyle = 'rgba(255, 42, 133, 0.85)';
-    ctx.font = '80px Outfit';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-    ctx.shadowBlur = 15;
-    ctx.fillText(state.countdownValue.toString(), elements.trackingCanvas.width / 2, elements.trackingCanvas.height / 2);
+        if (state.noHandFramesCount > 15) {
+            state.sequenceBuffer = [];
+            updateBufferTelemetry();
+            state.activePredictionWord = 'WAITING...';
+            state.currentConfidence = 0;
+            updatePredictionUI();
+        }
+    }
     ctx.restore();
 }
 
-// Process coordinates inside recording sequence
-function handleDatasetRecording(coords) {
-    state.recordingFrames.push(coords);
-    
-    const count = state.recordingFrames.length;
-    elements.recordingFrameCount.innerText = `${count} / ${CONFIG.sequenceLength}`;
-    elements.recordingProgressBar.style.width = `${(count / CONFIG.sequenceLength) * 100}%`;
-    
-    if (count === CONFIG.sequenceLength) {
-        state.isRecording = false;
-        
-        // Save sequence to dataset array
-        state.dataset.push({
-            label: state.recordingLabel,
-            sequence: state.recordingFrames
-        });
-        
-        state.recordingFrames = [];
-        
-        // Hide progress UI and re-enable controls
-        elements.recordingProgressWrapper.style.display = 'none';
-        elements.btnRecordSequence.removeAttribute('disabled');
-        
-        // Flash canvas green as success signal
-        flashCanvasSuccess();
-        
-        // Update Stats list
-        updateDatasetStatsUI();
-    }
-}
+// Draw Hand Skeleton Overlay
+function drawHandSkeleton(landmarks) {
+    const w = elements.trackingCanvas.width;
+    const h = elements.trackingCanvas.height;
 
-// Canvas success indicator flash
-function flashCanvasSuccess() {
-    elements.trackingCanvas.style.boxShadow = '0 0 35px var(--status-active)';
-    setTimeout(() => {
-        elements.trackingCanvas.style.boxShadow = 'none';
-    }, 350);
-}
-
-// Refresh sequence buffer UI telemetry
-function updateBufferTelemetry() {
-    const len = state.sequenceBuffer.length;
-    elements.bufferText.innerText = `${len} / ${CONFIG.sequenceLength} frames`;
-    elements.bufferFill.style.width = `${(len / CONFIG.sequenceLength) * 100}%`;
-}
-
-// Update stats listing in the Dataset Panel
-function updateDatasetStatsUI() {
-    // Count samples per label
-    const counts = {};
-    CONFIG.classes.forEach(cls => counts[cls] = 0);
-    
-    state.dataset.forEach(sample => {
-        if (!counts[sample.label]) {
-            counts[sample.label] = 0;
-        }
-        counts[sample.label]++;
-    });
-    
-    // Update Total Counter
-    elements.datasetTotalSamples.innerText = `${state.dataset.length} Samples`;
-    
-    // Update stats list
-    elements.datasetStatsList.innerHTML = '';
-    
-    if (state.dataset.length === 0) {
-        elements.datasetStatsList.innerHTML = '<li class="stats-item empty-state">No samples recorded yet.</li>';
-        elements.btnDownloadDataset.setAttribute('disabled', 'true');
-        elements.btnResetDataset.setAttribute('disabled', 'true');
-        return;
-    }
-    
-    // Enable actions
-    elements.btnDownloadDataset.removeAttribute('disabled');
-    elements.btnResetDataset.removeAttribute('disabled');
-    
-    Object.keys(counts).forEach(label => {
-        const li = document.createElement('li');
-        li.className = 'stats-item';
-        li.innerHTML = `<i class="fa-solid fa-folder-open" style="color: var(--neon-cyan)"></i> <strong>${label}</strong>: ${counts[label]} samples`;
-        elements.datasetStatsList.appendChild(li);
-    });
-}
-
-// 8. Custom Cyberpunk Skeleton Drawer
-function drawSkeleton(landmarks) {
-    const width = elements.trackingCanvas.width;
-    const height = elements.trackingCanvas.height;
-    
-    // A. Draw Connection Lines
-    ctx.lineWidth = 3.5;
-    ctx.strokeStyle = 'rgba(137, 87, 255, 0.7)'; // Neon purple
-    ctx.shadowBlur = 4;
-    ctx.shadowColor = 'rgba(137, 87, 255, 0.5)';
-    
-    for (let i = 0; i < HAND_CONNECTIONS.length; i++) {
-        const [startIdx, endIdx] = HAND_CONNECTIONS[i];
-        const startPoint = landmarks[startIdx];
-        const endPoint = landmarks[endIdx];
-        
+    // Draw Bones
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 3;
+    HAND_CONNECTIONS.forEach(([i, j]) => {
+        const p1 = landmarks[i];
+        const p2 = landmarks[j];
         ctx.beginPath();
-        ctx.moveTo(startPoint.x * width, startPoint.y * height);
-        ctx.lineTo(endPoint.x * width, endPoint.y * height);
+        ctx.moveTo(p1.x * w, p1.y * h);
+        ctx.lineTo(p2.x * w, p2.y * h);
         ctx.stroke();
-    }
-    
-    // B. Draw Joints (Nodes)
-    ctx.shadowBlur = 8;
-    for (let i = 0; i < landmarks.length; i++) {
-        const x = landmarks[i].x * width;
-        const y = landmarks[i].y * height;
-        
-        const isFingertip = FINGERTIPS.includes(i);
-        const radius = isFingertip ? 6.5 : 4.5;
-        
+    });
+
+    // Draw Joints
+    landmarks.forEach((pt, idx) => {
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
-        
-        if (isFingertip) {
-            ctx.fillStyle = '#ff2a85'; // Neon pink tips
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 1.5;
-            ctx.shadowColor = '#ff2a85';
-            ctx.fill();
-            ctx.stroke();
-        } else if (i === 0) {
-            ctx.fillStyle = '#00f2fe'; // Wrist anchor
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2.0;
-            ctx.shadowColor = '#00f2fe';
-            ctx.fill();
-            ctx.stroke();
-        } else {
-            ctx.fillStyle = '#00f2fe';
-            ctx.shadowColor = '#00f2fe';
-            ctx.fill();
-        }
-    }
-    
-    ctx.shadowBlur = 0;
+        ctx.arc(pt.x * w, pt.y * h, FINGERTIPS.includes(idx) ? 6 : 4, 0, 2 * Math.PI);
+        ctx.fillStyle = FINGERTIPS.includes(idx) ? '#06b6d4' : '#ffffff';
+        ctx.fill();
+    });
 }
 
-// 9. TensorFlow.js Inference Block
-async function runInference() {
-    const startTime = performance.now();
-    
-    // MEMORY MANAGEMENT: Manual tf.dispose() for intermediate tensors
-    const inputTensor = tf.tensor3d([state.sequenceBuffer]);
-    let predictionResults;
-    try {
-        const prediction = state.model.predict(inputTensor);
-        predictionResults = prediction.squeeze().dataSync();
-        prediction.dispose();
-    } catch (err) {
-        console.error("Inference execution failed:", err);
-        inputTensor.dispose();
+// Real-Time Inference Execution
+function runInference() {
+    if (state.cooldownCounter > 0) {
+        state.cooldownCounter--;
         return;
     }
-    inputTensor.dispose();
-    
-    state.latency = Math.round(performance.now() - startTime);
-    elements.hudLatency.innerText = `${state.latency} ms`;
-    
-    // Decode output class index
-    let maxIdx = 0;
-    let maxConf = 0;
-    for (let i = 0; i < predictionResults.length; i++) {
-        if (predictionResults[i] > maxConf) {
-            maxConf = predictionResults[i];
-            maxIdx = i;
+
+    tf.tidy(() => {
+        const inputTensor = tf.tensor3d([state.sequenceBuffer]);
+        const prediction = state.model.predict(inputTensor);
+        const probabilities = prediction.dataSync();
+
+        let maxIdx = 0;
+        let maxProb = probabilities[0];
+        for (let i = 1; i < probabilities.length; i++) {
+            if (probabilities[i] > maxProb) {
+                maxProb = probabilities[i];
+                maxIdx = i;
+            }
         }
-    }
-    
-    state.activePredictionWord = CONFIG.classes[maxIdx];
-    state.currentConfidence = maxConf;
-    
-    updatePredictionUI();
-    
-    // Stability validation before appending words
-    if (maxConf >= CONFIG.confidenceThreshold) {
-        if (state.lastPredictedClass === maxIdx) {
-            state.consecutivePredictions++;
-            
-            if (state.consecutivePredictions === CONFIG.stabilityFrames && state.cooldownCounter === 0) {
-                appendWordToSentence(CONFIG.classes[maxIdx]);
-                state.cooldownCounter = CONFIG.cooldownFrames;
+
+        const predictedLabel = CONFIG.classes[maxIdx];
+        state.currentConfidence = maxProb;
+
+        if (maxProb >= CONFIG.confidenceThreshold) {
+            state.activePredictionWord = predictedLabel;
+
+            if (maxIdx === state.lastPredictedClass) {
+                state.consecutivePredictions++;
+                if (state.consecutivePredictions >= CONFIG.stabilityFrames) {
+                    appendWordToSentence(predictedLabel);
+                    checkPracticeModeVerification(predictedLabel);
+                    state.consecutivePredictions = 0;
+                    state.cooldownCounter = CONFIG.cooldownFrames;
+                }
+            } else {
+                state.lastPredictedClass = maxIdx;
+                state.consecutivePredictions = 1;
             }
         } else {
-            state.lastPredictedClass = maxIdx;
-            state.consecutivePredictions = 1;
+            state.consecutivePredictions = 0;
         }
-    } else {
-        state.consecutivePredictions = 0;
-    }
+
+        updatePredictionUI();
+        elements.memoryStats.innerText = `${tf.memory().numTensors} Tensors`;
+    });
 }
 
-// Update Active Word UI Elements
+// Update Active Word UI & Guide Highlights
 function updatePredictionUI() {
-    // Clear active highlights on reference guide items
     const refItems = document.querySelectorAll('.gesture-ref-item');
     refItems.forEach(item => item.classList.remove('active-predicted'));
 
@@ -553,14 +730,13 @@ function updatePredictionUI() {
         const pct = Math.round(state.currentConfidence * 100);
         elements.confidencePercentage.innerText = `${pct}%`;
         elements.confidenceBar.style.width = `${pct}%`;
-        
-        if (state.currentConfidence > 0.8) {
+
+        if (state.currentConfidence > 0.82) {
             elements.confidenceBar.style.background = 'linear-gradient(90deg, var(--neon-blue) 0%, var(--neon-cyan) 100%)';
         } else {
             elements.confidenceBar.style.background = 'linear-gradient(90deg, var(--neon-purple) 0%, var(--neon-pink) 100%)';
         }
-        
-        // Dynamic guide highlight
+
         const activeWord = state.activePredictionWord.toLowerCase();
         const matchingRef = Array.from(refItems).find(item => item.getAttribute('data-gesture').toLowerCase() === activeWord);
         if (matchingRef) {
@@ -569,253 +745,207 @@ function updatePredictionUI() {
     }
 }
 
-// Append stable word to text area
+// Sentence History & NLP Grammar Engine
 function appendWordToSentence(word) {
-    let currentText = elements.sentenceHistory.value.trim();
-    
-    if (currentText.length > 0) {
-        currentText += " " + word;
-    } else {
-        currentText = word;
-    }
-    
-    elements.sentenceHistory.value = currentText;
-    elements.sentenceHistory.scrollTop = elements.sentenceHistory.scrollHeight;
-    
-    elements.sentenceHistory.style.boxShadow = '0 0 15px rgba(0, 255, 135, 0.2)';
-    setTimeout(() => {
-        elements.sentenceHistory.style.boxShadow = 'none';
-    }, 500);
+    // Exclude purely static positioning poses from raw transcript text
+    if (['Open', 'Closed', 'Pointer'].includes(word)) return;
+
+    state.rawRecognizedWords.push(word);
+    autoRefineGrammar();
 }
 
-// Diagnostics tracker for memory usage
-function updateMemoryDiagnostics() {
-    if (window.tf) {
-        const info = tf.memory();
-        elements.memoryStats.innerText = `${info.numTensors} Tensors (${Math.round(info.numBytes / 1024)} KB)`;
-    }
-}
-
-// 10. Webcam Controllers & Streams
-async function toggleWebcam() {
-    if (state.isCameraActive) {
-        stopWebcam();
-    } else {
-        await startWebcam();
-    }
-}
-
-async function startWebcam() {
-    try {
-        console.log("Attempting to start webcam...");
-        elements.btnToggleCamera.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Initializing...';
-        elements.btnToggleCamera.setAttribute('disabled', 'true');
-        
-        const constraints = {
-            video: {
-                facingMode: 'user',
-                width: 640,
-                height: 480
-            },
-            audio: false
-        };
-        
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        elements.webcamFeed.srcObject = stream;
-        
-        cameraHelper = new Camera(elements.webcamFeed, {
-            onFrame: async () => {
-                if (state.isCameraActive && handsDetector) {
-                    await handsDetector.send({ image: elements.webcamFeed });
-                }
-            },
-            width: 640,
-            height: 480
-        });
-        
-        await cameraHelper.start();
-        
-        state.isCameraActive = true;
-        elements.statusWebcam.setAttribute('data-status', 'active');
-        elements.statusWebcam.querySelector('.status-text').innerText = 'ACTIVE';
-        
-        elements.btnToggleCamera.innerHTML = '<i class="fa-solid fa-power-off"></i> Stop Webcam';
-        elements.btnToggleCamera.removeAttribute('disabled');
-        elements.btnToggleCamera.style.background = 'linear-gradient(135deg, var(--neon-pink) 0%, #e01b5d 100%)';
-        elements.btnToggleCamera.style.boxShadow = '0 4px 15px rgba(255, 42, 133, 0.3)';
-    } catch (err) {
-        console.error("Camera activation failure:", err);
-        alert("Unable to access webcam. Please check browser permissions and try again.");
-        
-        elements.btnToggleCamera.innerHTML = '<i class="fa-solid fa-power-off"></i> Start Webcam';
-        elements.btnToggleCamera.removeAttribute('disabled');
-        stopWebcam();
-    }
-}
-
-function stopWebcam() {
-    console.log("Stopping webcam stream...");
-    
-    if (cameraHelper) {
-        cameraHelper.stop();
-        cameraHelper = null;
-    }
-    
-    if (elements.webcamFeed.srcObject) {
-        const stream = elements.webcamFeed.srcObject;
-        const tracks = stream.getTracks();
-        tracks.forEach(track => track.stop());
-        elements.webcamFeed.srcObject = null;
-    }
-    
-    state.isCameraActive = false;
-    state.sequenceBuffer = [];
-    updateBufferTelemetry();
-    
-    elements.statusWebcam.setAttribute('data-status', 'inactive');
-    elements.statusWebcam.querySelector('.status-text').innerText = 'OFF';
-    
-    elements.statusDetection.setAttribute('data-status', 'none');
-    elements.statusDetection.querySelector('.status-text').innerText = 'NONE';
-    
-    elements.btnToggleCamera.innerHTML = '<i class="fa-solid fa-power-off"></i> Start Webcam';
-    elements.btnToggleCamera.style.background = 'linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-cyan) 100%)';
-    elements.btnToggleCamera.style.boxShadow = '0 4px 15px rgba(79, 172, 254, 0.3)';
-    
-    setupCanvas();
-}
-
-// 11. Event Listeners Config
-function setupEventListeners() {
-    // Camera toggle
-    elements.btnToggleCamera.addEventListener('click', toggleWebcam);
-    
-    // Translation Pause toggle
-    elements.btnToggleTranslation.addEventListener('click', () => {
-        state.isTranslationPaused = !state.isTranslationPaused;
-        if (state.isTranslationPaused) {
-            elements.btnToggleTranslation.innerHTML = '<i class="fa-solid fa-play"></i> Resume Translation';
-            elements.btnToggleTranslation.style.background = 'rgba(255, 211, 29, 0.1)';
-            elements.btnToggleTranslation.style.color = 'var(--status-warning)';
-            elements.btnToggleTranslation.style.borderColor = 'rgba(255, 211, 29, 0.3)';
-        } else {
-            elements.btnToggleTranslation.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Translation';
-            elements.btnToggleTranslation.removeAttribute('style');
-        }
-    });
-    
-    // Clear History
-    elements.btnClearHistory.addEventListener('click', () => {
+function autoRefineGrammar() {
+    const raw = state.rawRecognizedWords;
+    if (raw.length === 0) {
         elements.sentenceHistory.value = '';
-    });
+        return;
+    }
+
+    const text = raw.join(' ');
+
+    // NLP Phrase Replacements for Natural English Sentences
+    let refined = text
+        .replace(/Hello How are you/gi, "Hello, how are you?")
+        .replace(/I \/ Me Love You/gi, "I love you.")
+        .replace(/Please Help I \/ Me/gi, "Please help me.")
+        .replace(/Please Help/gi, "Please help me.")
+        .replace(/What Where/gi, "What is this and where is it?")
+        .replace(/Eat Water/gi, "I need food and water.")
+        .replace(/Thank you Bye/gi, "Thank you! Goodbye.")
+        .replace(/Welcome Good/gi, "You're welcome! Very good.")
+        .replace(/Help Water/gi, "Please bring me water!")
+        .replace(/How are you Good/gi, "How are you? I am doing good.");
+
+    // Capitalize first letter & ensure trailing punctuation
+    refined = refined.charAt(0).toUpperCase() + refined.slice(1);
+    if (!/[.!?]$/.test(refined)) refined += '.';
+
+    elements.sentenceHistory.value = refined;
+}
+
+// Practice Challenge Verification
+function checkPracticeModeVerification(word) {
+    if (word.toLowerCase() === state.practice.targetWord.toLowerCase()) {
+        state.practice.streak++;
+        elements.practiceStreakBadge.innerText = `🔥 Streak: ${state.practice.streak}`;
+        elements.practiceFeedbackText.innerHTML = `<span style="color: var(--neon-cyan); font-weight: bold;">🎉 EXCELLENT! Perfect '${word}' sign! +1 Streak!</span>`;
+        
+        setTimeout(() => {
+            setRandomChallenge();
+        }, 1800);
+    }
+}
+
+function setRandomChallenge() {
+    const available = CONFIG.classes.filter(c => !['Open', 'Closed', 'Pointer'].includes(c));
+    const randomWord = available[Math.floor(Math.random() * available.length)];
+    state.practice.targetWord = randomWord;
     
-    // TTS Voice Engine
-    elements.btnTts.addEventListener('click', () => {
-        const text = elements.sentenceHistory.value.trim();
-        if (text.length === 0) return;
+    const meta = GESTURE_METADATA[randomWord] || { emoji: '👋', action: 'Sign movement' };
+    elements.practiceTargetEmoji.innerText = meta.emoji;
+    elements.practiceTargetWord.innerText = randomWord;
+    elements.practiceTargetHint.innerText = meta.action;
+    elements.practiceFeedbackText.innerText = `Show the '${randomWord}' gesture in front of the camera...`;
+}
+
+// Text-to-Speech
+function speakSentence() {
+    const text = elements.sentenceHistory.value.trim();
+    if (!text) return;
+    
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+    } else {
+        alert('Text-to-speech is not supported in your browser.');
+    }
+}
+
+function copyTranscript() {
+    const text = elements.sentenceHistory.value.trim();
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    const origText = elements.btnCopyHistory.innerHTML;
+    elements.btnCopyHistory.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+    setTimeout(() => elements.btnCopyHistory.innerHTML = origText, 1500);
+}
+
+function clearHistory() {
+    state.rawRecognizedWords = [];
+    elements.sentenceHistory.value = '';
+}
+
+function updateBufferTelemetry() {
+    const count = state.sequenceBuffer.length;
+    elements.bufferText.innerText = `${count} / ${CONFIG.sequenceLength} frames`;
+    const fillPct = Math.round((count / CONFIG.sequenceLength) * 100);
+    elements.bufferFill.style.width = `${fillPct}%`;
+}
+
+// Custom Dataset Builder Functions
+function addCustomClass() {
+    const newClass = elements.inputCustomClass.value.trim();
+    if (!newClass) return;
+    
+    if (!CONFIG.classes.includes(newClass)) {
+        CONFIG.classes.push(newClass);
+        GESTURE_METADATA[newClass] = {
+            emoji: '✨',
+            category: 'custom',
+            action: 'Custom recorded gesture',
+            step1: 'Position hand.', step2: 'Perform custom gesture.', step3: 'Hold pose.'
+        };
+        syncClassSelector();
+        renderGestureGuideCards();
+        renderTutorialCards();
+        elements.inputCustomClass.value = '';
+    }
+}
+
+function startRecordingSequence() {
+    if (!state.isCameraActive) {
+        alert('Please start the webcam first before recording samples.');
+        return;
+    }
+
+    state.recordingLabel = elements.selectRecordClass.value;
+    state.recordingFrames = [];
+    state.isRecording = true;
+    
+    elements.recordingProgressWrapper.style.display = 'block';
+    elements.recordingStateLabel.innerText = `Recording '${state.recordingLabel}'...`;
+    elements.recordingFrameCount.innerText = `0 / ${CONFIG.sequenceLength}`;
+    elements.recordingProgressBar.style.width = '0%';
+    elements.btnRecordSequence.disabled = true;
+}
+
+function handleRecordingFrame(coords) {
+    state.recordingFrames.push(coords);
+    const count = state.recordingFrames.length;
+    
+    elements.recordingFrameCount.innerText = `${count} / ${CONFIG.sequenceLength}`;
+    elements.recordingProgressBar.style.width = `${Math.round((count / CONFIG.sequenceLength) * 100)}%`;
+
+    if (count === CONFIG.sequenceLength) {
+        state.dataset.push({
+            label: state.recordingLabel,
+            sequence: [...state.recordingFrames]
+        });
+
+        state.isRecording = false;
+        elements.btnRecordSequence.disabled = false;
+        elements.recordingStateLabel.innerText = `Saved 1 sample for '${state.recordingLabel}'!`;
         
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 0.95;
-            utterance.pitch = 1.05;
-            window.speechSynthesis.speak(utterance);
-        } else {
-            alert("Your browser does not support text-to-speech features.");
-        }
+        updateDatasetStatsUI();
+
+        setTimeout(() => {
+            elements.recordingProgressWrapper.style.display = 'none';
+        }, 1500);
+    }
+}
+
+function updateDatasetStatsUI() {
+    elements.datasetTotalSamples.innerText = `${state.dataset.length} Samples`;
+    elements.btnDownloadDataset.disabled = state.dataset.length === 0;
+    elements.btnResetDataset.disabled = state.dataset.length === 0;
+
+    const counts = {};
+    state.dataset.forEach(item => {
+        counts[item.label] = (counts[item.label] || 0) + 1;
     });
 
-    // Dataset Builder Event: Add Custom Class Label
-    elements.btnAddClass.addEventListener('click', () => {
-        const customName = elements.inputCustomClass.value.trim();
-        if (customName) {
-            // Check if already in options
-            let exists = false;
-            for (let i = 0; i < elements.selectRecordClass.options.length; i++) {
-                if (elements.selectRecordClass.options[i].value === customName) {
-                    exists = true;
-                    elements.selectRecordClass.selectedIndex = i;
-                    break;
-                }
-            }
-            
-            if (!exists) {
-                const opt = document.createElement('option');
-                opt.value = customName;
-                opt.innerText = customName;
-                elements.selectRecordClass.appendChild(opt);
-                elements.selectRecordClass.value = customName;
-                
-                // Add to classes array if not in it
-                if (!CONFIG.classes.includes(customName)) {
-                    CONFIG.classes.push(customName);
-                }
-            }
-            
-            // Refresh selector list and classes counter UI
-            syncClassSelector();
-            elements.inputCustomClass.value = '';
-        }
-    });
+    elements.datasetStatsList.innerHTML = '';
+    if (Object.keys(counts).length === 0) {
+        elements.datasetStatsList.innerHTML = '<li class="stats-item empty-state">No custom samples recorded yet.</li>';
+        return;
+    }
 
-    // Dataset Builder Event: Record Sample Sequence
-    elements.btnRecordSequence.addEventListener('click', () => {
-        if (!state.isCameraActive) {
-            alert("Please start the webcam first before attempting to record gestures.");
-            return;
-        }
-        
-        state.recordingLabel = elements.selectRecordClass.value;
-        elements.btnRecordSequence.setAttribute('disabled', 'true');
-        
-        // Reset recording variables
-        state.recordingFrames = [];
-        elements.recordingProgressWrapper.style.display = 'block';
-        elements.recordingStateLabel.innerText = `Get ready... Starting in 3s`;
-        elements.recordingFrameCount.innerText = '0 / 30';
-        elements.recordingProgressBar.style.width = '0%';
-        
-        // Start 3-second countdown
-        state.countdownValue = 3;
-        state.countdownInterval = setInterval(() => {
-            state.countdownValue--;
-            if (state.countdownValue > 0) {
-                elements.recordingStateLabel.innerText = `Get ready... Starting in ${state.countdownValue}s`;
-            } else {
-                clearInterval(state.countdownInterval);
-                state.countdownInterval = null;
-                // Initiate active frame collection
-                state.isRecording = true;
-                elements.recordingStateLabel.innerText = `Recording "${state.recordingLabel}"...`;
-            }
-        }, 1000);
+    Object.entries(counts).forEach(([lbl, num]) => {
+        const li = document.createElement('li');
+        li.className = 'stats-item';
+        li.innerHTML = `<span>${lbl}</span><strong>${num} samples</strong>`;
+        elements.datasetStatsList.appendChild(li);
     });
+}
 
-    // Dataset Builder Event: Download JSON Dataset
-    elements.btnDownloadDataset.addEventListener('click', () => {
-        if (state.dataset.length === 0) return;
-        
-        const jsonStr = JSON.stringify(state.dataset, null, 4);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        // Download trigger
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'dataset.json';
-        document.body.appendChild(a);
-        a.click();
-        
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        console.log(`Downloaded dataset containing ${state.dataset.length} samples.`);
-    });
+function downloadDataset() {
+    if (state.dataset.length === 0) return;
+    const jsonStr = JSON.stringify(state.dataset, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'dataset.json';
+    a.click();
+    URL.revokeObjectURL(url);
+}
 
-    // Dataset Builder Event: Reset local collection
-    elements.btnResetDataset.addEventListener('click', () => {
-        if (confirm("Are you sure you want to delete all currently recorded dataset samples?")) {
-            state.dataset = [];
-            updateDatasetStatsUI();
-        }
-    });
+function resetDataset() {
+    if (confirm('Are you sure you want to clear all custom recorded dataset samples?')) {
+        state.dataset = [];
+        updateDatasetStatsUI();
+    }
 }

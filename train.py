@@ -11,11 +11,12 @@ import json
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Input, LSTM, Dense, Dropout
+from tensorflow.keras.layers import Input, LSTM, Dense, Dropout, Bidirectional, BatchNormalization
+from tensorflow.keras.regularizers import l2
 from tensorflow.keras.utils import to_categorical
 
 def main():
-    print("=== DeafBuddy LSTM Model Training ===")
+    print("=== DeafBuddy Pro Major Project LSTM Training ===")
     
     # 1. Configuration Constants
     sequence_length = 30  # Number of frames per gesture sequence
@@ -41,17 +42,13 @@ def main():
             label = item.get('label')
             seq = item.get('sequence')
             
-            # Validation checks
             if not label or not seq:
-                print(f"  - Warning: Skipping corrupted sample at index {idx}.")
                 skipped_samples += 1
                 continue
                 
             seq_np = np.array(seq, dtype=np.float32)
             
-            # Verify shape match (30 frames, 63 coordinate values)
             if seq_np.shape != (sequence_length, num_features):
-                print(f"  - Warning: Sample {idx} has invalid shape {seq_np.shape}. Expected ({sequence_length}, {num_features}). Skipping.")
                 skipped_samples += 1
                 continue
                 
@@ -76,50 +73,44 @@ def main():
             count = y_list.count(name)
             print(f"  - Class [{idx}]: '{name}' ({count} samples)")
             
-        # Write classes array copy-paste instructions for the frontend
         print("\n" + "=" * 65)
         print("💡 ATTENTION: COPY AND PASTE THIS INTO CONFIG.classes IN app.js:")
         print(f"classes: {unique_classes}")
         print("=" * 65 + "\n")
         
-        # Map class names to integer labels
         y_labels = np.array([unique_classes.index(lbl) for lbl in y_list])
         y_data = to_categorical(y_labels, num_classes=num_classes)
         
     else:
         print(f"\n[DEMO MODE] Custom dataset file '{dataset_file}' NOT found.")
-        print("💡 Tip: You can record real hand gestures using the custom builder UI")
-        print("   on the frontend and download them to this folder as 'dataset.json'.")
-        print("Generating synthetic dummy data for demonstration...")
-        
         num_samples = 1000
         num_classes = 3
         unique_classes = ["Hello", "Thank You", "Goodbye"]
-        
         x_data = np.random.rand(num_samples, sequence_length, num_features).astype(np.float32)
         y_labels = np.random.randint(0, num_classes, size=(num_samples,))
         y_data = to_categorical(y_labels, num_classes=num_classes)
-        
-        print(f"Generated {num_samples} random sequences of shape ({sequence_length}, {num_features}) for {num_classes} classes.")
     
     print("\nData Shape Summary:")
     print(f"  - X (Features matrix): {x_data.shape}")
     print(f"  - Y (Target matrix):   {y_data.shape}")
     
-    # 3. Define LSTM Network Architecture
+    # 3. Define Advanced Bidirectional LSTM Network Architecture
     model = Sequential([
         Input(shape=(sequence_length, num_features)),
-        LSTM(64, return_sequences=True),
-        Dropout(0.2),
-        LSTM(64, return_sequences=False),
-        Dropout(0.2),
-        Dense(32, activation='relu'),
+        Bidirectional(LSTM(128, return_sequences=True)),
+        BatchNormalization(),
+        Dropout(0.3),
+        Bidirectional(LSTM(64, return_sequences=False)),
+        BatchNormalization(),
+        Dropout(0.3),
+        Dense(64, activation='elu', kernel_regularizer=l2(0.001)),
         Dense(num_classes, activation='softmax')
     ])
     
-    # 4. Compile the Model
+    # 4. Compile the Model with Adam Optimizer
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(
-        optimizer='adam',
+        optimizer=optimizer,
         loss='categorical_crossentropy',
         metrics=['accuracy']
     )

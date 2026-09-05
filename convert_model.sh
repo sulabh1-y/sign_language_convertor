@@ -16,10 +16,6 @@ else
     echo "tensorflowjs package is already installed."
 fi
 
-# Force upgrade protobuf to resolve the incompatible runtime mismatch with yggdrasil-decision-forests
-echo "Ensuring compatible protobuf runtime version..."
-pip3 install "protobuf>=6.31.1"
-
 # Convert model.h5 to tfjs_model directory containing model.json and binary shard files
 echo "Converting model.h5 to TensorFlow.js format..."
 KERAS_HOME=./.keras tensorflowjs_converter --input_format=keras model.h5 tfjs_model
