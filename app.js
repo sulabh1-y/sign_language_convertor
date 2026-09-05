@@ -599,13 +599,19 @@ function onHandResults(results) {
         const landmarks = results.multiHandLandmarks[0];
         drawHandSkeleton(landmarks);
 
-        // Normalize landmarks (Wrist-relative)
+        // Scale-Invariant Wrist & Hand Normalization
         const wrist = landmarks[0];
+        const middleMcp = landmarks[9];
+        const dx = middleMcp.x - wrist.x;
+        const dy = middleMcp.y - wrist.y;
+        const dz = middleMcp.z - wrist.z;
+        const handScale = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1.0;
+
         const normalizedCoords = [];
         for (let i = 0; i < 21; i++) {
-            normalizedCoords.push(landmarks[i].x - wrist.x);
-            normalizedCoords.push(landmarks[i].y - wrist.y);
-            normalizedCoords.push(landmarks[i].z - wrist.z);
+            normalizedCoords.push((landmarks[i].x - wrist.x) / handScale);
+            normalizedCoords.push((landmarks[i].y - wrist.y) / handScale);
+            normalizedCoords.push((landmarks[i].z - wrist.z) / handScale);
         }
 
         // Recording mode handler
