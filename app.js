@@ -599,19 +599,30 @@ function onHandResults(results) {
         const landmarks = results.multiHandLandmarks[0];
         drawHandSkeleton(landmarks);
 
-        // Scale-Invariant Wrist & Hand Normalization
-        const wrist = landmarks[0];
-        const middleMcp = landmarks[9];
-        const dx = middleMcp.x - wrist.x;
-        const dy = middleMcp.y - wrist.y;
-        const dz = middleMcp.z - wrist.z;
-        const handScale = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1.0;
+        // Scale-Invariant Wrist & Hand Normalization (NaN & Undefined Protected)
+        const wristX = wrist.x || 0;
+        const wristY = wrist.y || 0;
+        const wristZ = wrist.z || 0;
+
+        const middleX = middleMcp.x || 0;
+        const middleY = middleMcp.y || 0;
+        const middleZ = middleMcp.z || 0;
+
+        const dx = middleX - wristX;
+        const dy = middleY - wristY;
+        const dz = middleZ - wristZ;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const handScale = (dist > 0.001) ? dist : 1.0;
 
         const normalizedCoords = [];
         for (let i = 0; i < 21; i++) {
-            normalizedCoords.push((landmarks[i].x - wrist.x) / handScale);
-            normalizedCoords.push((landmarks[i].y - wrist.y) / handScale);
-            normalizedCoords.push((landmarks[i].z - wrist.z) / handScale);
+            const px = landmarks[i].x || 0;
+            const py = landmarks[i].y || 0;
+            const pz = landmarks[i].z || 0;
+
+            normalizedCoords.push((px - wristX) / handScale);
+            normalizedCoords.push((py - wristY) / handScale);
+            normalizedCoords.push((pz - wristZ) / handScale);
         }
 
         // Recording mode handler
@@ -674,51 +685,57 @@ function drawHandSkeleton(landmarks) {
     });
 }
 
-// Real-Time Inference Execution
+// Real-Time Inference Execution (Error Guarded)
 function runInference() {
     if (state.cooldownCounter > 0) {
         state.cooldownCounter--;
         return;
     }
 
-    tf.tidy(() => {
-        const inputTensor = tf.tensor3d([state.sequenceBuffer]);
-        const prediction = state.model.predict(inputTensor);
-        const probabilities = prediction.dataSync();
+    try {
+        tf.tidy(() => {
+            const inputTensor = tf.tensor3d([state.sequenceBuffer]);
+            const prediction = state.model.predict(inputTensor);
+            const probabilities = prediction.dataSync();
 
-        let maxIdx = 0;
-        let maxProb = probabilities[0];
-        for (let i = 1; i < probabilities.length; i++) {
-            if (probabilities[i] > maxProb) {
-                maxProb = probabilities[i];
-                maxIdx = i;
+            if (!probabilities || probabilities.length === 0) return;
+
+            let maxIdx = 0;
+            let maxProb = probabilities[0];
+            for (let i = 1; i < probabilities.length; i++) {
+                if (probabilities[i] > maxProb) {
+                    maxProb = probabilities[i];
+                    maxIdx = i;
+                }
             }
-        }
 
-        const predictedLabel = CONFIG.classes[maxIdx];
-        state.currentConfidence = maxProb;
-        state.activePredictionWord = predictedLabel;
+            const predictedLabel = CONFIG.classes[maxIdx];
+            state.currentConfidence = isNaN(maxProb) ? 0 : maxProb;
+            state.activePredictionWord = predictedLabel || 'WAITING...';
 
-        if (maxProb >= CONFIG.confidenceThreshold) {
-            if (maxIdx === state.lastPredictedClass) {
-                state.consecutivePredictions++;
-                if (state.consecutivePredictions >= CONFIG.stabilityFrames) {
-                    appendWordToSentence(predictedLabel);
-                    checkPracticeModeVerification(predictedLabel);
-                    state.consecutivePredictions = 0;
-                    state.cooldownCounter = CONFIG.cooldownFrames;
+            if (maxProb >= CONFIG.confidenceThreshold) {
+                if (maxIdx === state.lastPredictedClass) {
+                    state.consecutivePredictions++;
+                    if (state.consecutivePredictions >= CONFIG.stabilityFrames) {
+                        appendWordToSentence(predictedLabel);
+                        checkPracticeModeVerification(predictedLabel);
+                        state.consecutivePredictions = 0;
+                        state.cooldownCounter = CONFIG.cooldownFrames;
+                    }
+                } else {
+                    state.lastPredictedClass = maxIdx;
+                    state.consecutivePredictions = 1;
                 }
             } else {
-                state.lastPredictedClass = maxIdx;
-                state.consecutivePredictions = 1;
+                state.consecutivePredictions = 0;
             }
-        } else {
-            state.consecutivePredictions = 0;
-        }
 
-        updatePredictionUI();
-        elements.memoryStats.innerText = `${tf.memory().numTensors} Tensors`;
-    });
+            updatePredictionUI();
+            elements.memoryStats.innerText = `${tf.memory().numTensors} Tensors`;
+        });
+    } catch (err) {
+        console.error('Safe Inference Guard:', err);
+    }
 }
 
 // Update Active Word UI & Guide Highlights
