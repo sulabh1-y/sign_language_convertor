@@ -600,6 +600,9 @@ function onHandResults(results) {
         drawHandSkeleton(landmarks);
 
         // Scale-Invariant Wrist & Hand Normalization (NaN & Undefined Protected)
+        const wrist = landmarks[0] || { x: 0, y: 0, z: 0 };
+        const middleMcp = landmarks[9] || { x: 0, y: 0, z: 0 };
+
         const wristX = wrist.x || 0;
         const wristY = wrist.y || 0;
         const wristZ = wrist.z || 0;
